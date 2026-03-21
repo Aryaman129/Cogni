@@ -41,13 +41,18 @@ const BIOMARKERS_STATIC = [
   { name: "Emotional",             val: "0.65", tr: "-1.2%", dir: "up",   st: "good", key: "emotional_entropy"    },
 ];
 
-const MOCK_HISTORY = [
-  { date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), risk_tier: "Green", semantic_coherence: 0.82, speech_rate: 115, pause_frequency: 3.1 },
-  { date: new Date(new Date().setDate(new Date().getDate() - 4)).toISOString(), risk_tier: "Green", semantic_coherence: 0.81, speech_rate: 118, pause_frequency: 3.2 },
-  { date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(), risk_tier: "Yellow", semantic_coherence: 0.76, speech_rate: 105, pause_frequency: 4.8 },
-  { date: new Date(new Date().setDate(new Date().getDate() - 8)).toISOString(), risk_tier: "Green", semantic_coherence: 0.80, speech_rate: 112, pause_frequency: 3.5 },
-  { date: new Date(new Date().setDate(new Date().getDate() - 11)).toISOString(), risk_tier: "Green", semantic_coherence: 0.83, speech_rate: 119, pause_frequency: 3.0 },
-];
+const MOCK_HISTORY = Array.from({ length: 14 }).map((_, i) => {
+  const d = new Date();
+  // We offset it by i + 1 days so it spans yesterday back 14 days
+  d.setDate(d.getDate() - i - 1);
+  return {
+    date: d.toISOString(),
+    risk_tier: "Green",
+    semantic_coherence: (0.80 + Math.random() * 0.05).toFixed(2),
+    speech_rate: Math.floor(110 + Math.random() * 15),
+    pause_frequency: (3.0 + Math.random() * 0.5).toFixed(1),
+  };
+});
 
 // ── SPARKLINE ──
 const LC = { good:"#10B981", warn:"#F59E0B", crit:"#EF4444" };
@@ -302,7 +307,7 @@ const Dashboard = () => {
 
   const firstName = profile?.name?.split(" ")[0] || user?.name?.split(" ")[0] || "there";
   const cogAge = isDemo ? 52 : (profile?.sessions_total > 0 && profile?.cognitive_age != null ? profile.cognitive_age : "—");
-  const bioAge = isDemo ? 58 : ((profile?.dob || user?.dob) ? (new Date().getFullYear() - new Date(profile?.dob || user?.dob).getFullYear()) : "—");
+  const bioAge = ((profile?.dob || user?.dob) ? (new Date().getFullYear() - new Date(profile?.dob || user?.dob).getFullYear()) : "—");
   const ageDiff = isDemo ? 6 : ((bioAge !== "—" && cogAge !== "—") ? bioAge - cogAge : null);
   const streak = isDemo ? 14 : (profile?.streak ?? "—");
   const sessionsMonth = isDemo ? 12 : (profile?.sessions_this_month ?? "—");

@@ -291,7 +291,7 @@ const ARReport = () => {
   const isDemo = user?.email?.includes("demo");
 
   const cogAge   = isDemo ? 52 : (profile?.sessions_total > 0 && profile?.cognitive_age != null ? profile.cognitive_age : "—");
-  const bioAge   = isDemo ? 58 : ((profile?.dob || user?.dob) ? (new Date().getFullYear() - new Date(profile?.dob || user?.dob).getFullYear()) : "—");
+  const bioAge   = ((profile?.dob || user?.dob) ? (new Date().getFullYear() - new Date(profile?.dob || user?.dob).getFullYear()) : "—");
   const ageDiff  = isDemo ? 6 : ((bioAge !== "—" && cogAge !== "—") ? bioAge - cogAge : null);
   const streak   = isDemo ? 14 : (profile?.streak ?? "—");
   const riskTier = isDemo ? "Green" : (profile?.risk_tier || latest?.risk_tier || "Green");
