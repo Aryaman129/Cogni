@@ -41,6 +41,14 @@ const BIOMARKERS_STATIC = [
   { name: "Emotional",             val: "0.65", tr: "-1.2%", dir: "up",   st: "good", key: "emotional_entropy"    },
 ];
 
+const MOCK_HISTORY = [
+  { date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), risk_tier: "Green", semantic_coherence: 0.82, speech_rate: 115, pause_frequency: 3.1 },
+  { date: new Date(new Date().setDate(new Date().getDate() - 4)).toISOString(), risk_tier: "Green", semantic_coherence: 0.81, speech_rate: 118, pause_frequency: 3.2 },
+  { date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(), risk_tier: "Yellow", semantic_coherence: 0.76, speech_rate: 105, pause_frequency: 4.8 },
+  { date: new Date(new Date().setDate(new Date().getDate() - 8)).toISOString(), risk_tier: "Green", semantic_coherence: 0.80, speech_rate: 112, pause_frequency: 3.5 },
+  { date: new Date(new Date().setDate(new Date().getDate() - 11)).toISOString(), risk_tier: "Green", semantic_coherence: 0.83, speech_rate: 119, pause_frequency: 3.0 },
+];
+
 // ── SPARKLINE ──
 const LC = { good:"#10B981", warn:"#F59E0B", crit:"#EF4444" };
 const DC = { good:"#6EE7B7", warn:"#FDE68A", crit:"#FCA5A5" };
@@ -395,13 +403,13 @@ const Dashboard = () => {
                 <div className="cog-num">{profile?.sessions_total > 0 ? cogAge : "—"}</div>
                 <div className="cog-sub">
                   {bioAge ? `Biological age: ${bioAge} — ` : ""}
-                  {profile?.sessions_total > 0 && ageDiff != null && ageDiff > 0
+                  {(isDemo || (profile?.sessions_total > 0 && ageDiff != null && ageDiff > 0))
                     ? <b>{ageDiff} yrs younger ✦</b>
                     : (profile?.sessions_total > 0 ? "calculating…" : "record to calculate")}
                 </div>
                 <div className="cog-bar">
                   <div className="cog-bar-fill" style={{
-                    width: profile?.sessions_total > 0 && cogAge !== "—" ? `${Math.min(100, (Number(cogAge) / 80) * 100)}%` : "0%"
+                    width: (isDemo || profile?.sessions_total > 0) && cogAge !== "—" ? `${Math.min(100, (Number(cogAge) / 80) * 100)}%` : "0%"
                   }} />
                 </div>
               </>
@@ -501,7 +509,7 @@ const Dashboard = () => {
           </div>
 
           {/* Calendar */}
-          <Calendar dark={dark} history={history} />
+          <Calendar dark={dark} history={isDemo ? MOCK_HISTORY : history} />
         </div>
       </div>
     </div>

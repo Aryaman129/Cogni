@@ -235,6 +235,15 @@ const TrajCanvas = ({ dark, month, scores, labels }) => {
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, W, H);
 
+    if (!scores || scores.length === 0) {
+      ctx.fillStyle = dark ? "#9CA3AF" : "#6B7280";
+      ctx.font = "12px Plus Jakarta Sans, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("No trajectory history found. Record more sessions.", W/2, H/2);
+      return;
+    }
+
     const min  = Math.min(...scores) - 2;
     const max  = Math.max(...scores) + 2;
     const range = max - min || 1;
