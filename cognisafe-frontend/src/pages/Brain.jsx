@@ -235,12 +235,12 @@ const TrajCanvas = ({ dark, month, scores, labels }) => {
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, W, H);
 
-    if (!scores || scores.length === 0) {
+    if (!scores || scores.length < 2) {
       ctx.fillStyle = dark ? "#9CA3AF" : "#6B7280";
       ctx.font = "12px Plus Jakarta Sans, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("No trajectory history found. Record more sessions.", W/2, H/2);
+      ctx.fillText(scores?.length === 1 ? "1 session recorded. Need 1 more to plot trajectory." : "No trajectory history found. Record more sessions.", W/2, H/2);
       return;
     }
 
@@ -339,7 +339,7 @@ const Brain = () => {
         ]);
 
         // Update trajectory chart
-        if (traj && traj.length > 0) {
+        if (traj && traj.length > 0 && !isDemo) {
           setScores(traj.map(t => t.score));
           setMonthLabels(traj.map(t => {
             const d = new Date(t.month + "-01");
