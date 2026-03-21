@@ -126,13 +126,15 @@ const Auth = () => {
   const update = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }));
 
   const validate = () => {
-    const errs = { email: "", password: "" };
+    const errs = { email: "", password: "", dob: "" };
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = "Enter a valid email address";
     if (isReg && form.password && form.password.length < 8)
       errs.password = "Minimum 8 characters required";
+    if (isReg && !form.dob)
+      errs.dob = "Required";
     setErrors(errs);
-    return !errs.email && !errs.password;
+    return !errs.email && !errs.password && !errs.dob;
   };
 const { login } = useAuth();
 
@@ -261,6 +263,7 @@ const handleSubmit = async () => {
               <div className="field" style={{ marginBottom: 16 }}>
                 <label className="f-label">Date of birth</label>
                 <input className="f-input" type="date" value={form.dob} onChange={update("dob")} style={{ colorScheme: dark ? "dark" : "light" }} />
+                {errors.dob && <span className="f-error">{errors.dob}</span>}
               </div>
             )}
 
