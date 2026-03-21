@@ -1,0 +1,13 @@
+# Core dependencies
+openai-whisper  # Requires ffmpeg (install separately: choco install ffmpeg)
+sentence-transformers
+spacy
+transformers
+xgboost
+fastapi
+uvicorn
+python-multipart
+librosa
+soundfile
+numpy
+scipy
