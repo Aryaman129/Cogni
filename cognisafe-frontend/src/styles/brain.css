@@ -110,9 +110,13 @@ canvas.traj-canvas { width: 100%; display: block; margin: 10px 0; }
 .anomaly-item.bad  .anomaly-status { color: var(--danger); }
 
 /* ── RESPONSIVE ── */
-@media (max-width: 900px) {
-  .brain-main { grid-template-columns: 1fr; }
-  .brain-stats { grid-template-columns: 1fr; }
-  .anomaly-grid { grid-template-columns: repeat(3,1fr); }
-  .nav-links { display: none; }
+@media (max-width: 768px) {
+  .brain-page { padding: 16px; padding-bottom: 90px; }
+  .brain-main { grid-template-columns: 1fr; gap: 16px; }
+  .brain-stats { grid-template-columns: 1fr; gap: 12px; }
+  .anomaly-grid { grid-template-columns: repeat(2,1fr); }
+  .page-title { font-size: 24px; margin-bottom: 24px; }
+  .nav-links { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--nav); border-top: 1px solid rgba(110,231,183,0.15); padding: 10px 8px; justify-content: space-around; z-index: 1000; box-shadow: 0 -10px 30px rgba(0,0,0,0.2); }
+  .nav-link { font-size: 13px !important; padding: 8px 12px !important; background: transparent !important; }
+  .nav-link.active { background: rgba(110,231,183,0.18) !important; border-radius: 8px; }
 }

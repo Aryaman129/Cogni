@@ -97,5 +97,11 @@ canvas.qr-canvas { border-radius: 6px; }
 .toast { position: fixed; bottom: 24px; right: 24px; background: linear-gradient(135deg,#10B981,#059669); color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 15px; font-weight: 600; box-shadow: 0 8px 24px rgba(16,185,129,0.4); display: none; align-items: center; gap: 8px; z-index: 999; animation: toastIn 0.4s cubic-bezier(0.16,1,0.3,1); }
 @keyframes toastIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 
-@media (max-width: 900px) { .ar-main { grid-template-columns: 1fr; } .nav-links { display: none; } }
+@media (max-width: 900px) {
+  .ar-main { grid-template-columns: 1fr; }
+  .ar-page { padding-bottom: 90px; }
+  .nav-links { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--nav); border-top: 1px solid rgba(110,231,183,0.15); padding: 10px 8px; justify-content: space-around; z-index: 1000; box-shadow: 0 -10px 30px rgba(0,0,0,0.2); }
+  .nav-link { font-size: 13px !important; padding: 8px 12px !important; background: transparent !important; }
+  .nav-link.active { background: rgba(110,231,183,0.18) !important; border-radius: 8px; }
+}
 @media (max-width: 600px) { .mini-stats { grid-template-columns: 1fr; } .share-options { grid-template-columns: 1fr; } }

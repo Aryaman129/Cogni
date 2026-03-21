@@ -142,7 +142,13 @@
 @media (max-width: 768px) {
   .session-page { padding: 20px 16px 48px; }
   .metrics-grid { grid-template-columns: 1fr 1fr; }
-  .nav-links { display: none; }
+  .session-card { padding: 24px 16px; margin: 16px; }
+  .session-page { padding-bottom: 90px; }
+  .st-title { font-size: 24px; }
+  .timer { font-size: 54px; }
+  .nav-links { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--nav); border-top: 1px solid rgba(110,231,183,0.15); padding: 10px 8px; justify-content: space-around; z-index: 1000; box-shadow: 0 -10px 30px rgba(0,0,0,0.2); }
+  .nav-link { font-size: 13px !important; padding: 8px 12px !important; background: transparent !important; }
+  .nav-link.active { background: rgba(110,231,183,0.18) !important; border-radius: 8px; }
   .btn-row { flex-direction: column; }
   .btn-primary, .btn-ghost { width: 100%; justify-content: center; }
 }
