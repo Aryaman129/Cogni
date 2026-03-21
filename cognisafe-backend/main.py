@@ -16,6 +16,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+def seed_demo_user():
+    from database import SessionLocal
+    from auth import hash_password
+    db = SessionLocal()
+    existing = db.query(User).filter(User.email == "demo@cognisafe.app").first()
+    if existing and not existing.dob:
+        db.delete(existing)
+        db.commit()
+        existing = None
+        
+    if not existing:
+        user = User(
+            name="Arjun Sharma",
+            email="demo@cognisafe.app",
+            password_hash=hash_password("demo1234"),
+            dob="1968-05-14",
+        )
+        db.add(user)
+        db.commit()
+    db.close()
+
 app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(users_router)
