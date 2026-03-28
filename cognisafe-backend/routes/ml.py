@@ -15,7 +15,7 @@ async def analyze(
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{HF_BASE}/analyze",
-                files={"audio": (audio.filename, audio_bytes, audio.content_type)},
+                files={"audio": ("recording.wav", audio_bytes, "audio/wav")},  # ← force .wav filename
                 data={"user_id": user_id},
             )
             response.raise_for_status()
