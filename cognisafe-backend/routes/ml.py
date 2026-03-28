@@ -28,11 +28,12 @@ async def analyze(
         raise HTTPException(status_code=502, detail=f"ML service unreachable: {str(e)}")
 
 
-@ml_router.get("/health")
-async def ml_health():
+@ml_router.get("/warmup")
+async def warmup():
+    """Call this before recording to wake up HF Space"""
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             r = await client.get(f"{HF_BASE}/health")
-            return r.json()
+            return {"status": "warmed", "hf": r.json()}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        return {"status": "warming", "detail": str(e)}
