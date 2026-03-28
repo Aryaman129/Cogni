@@ -45,6 +45,7 @@ app.include_router(users_router)
 app.include_router(reports_router)
 app.include_router(ml_router)  
 
+
 @app.get("/")
 def root():
     return {"status": "CogniSafe API running", "version": "1.0.0"}

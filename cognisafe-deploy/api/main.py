@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import uuid
+import subprocess
 from datetime import datetime
 
 # Make sure pipeline modules are importable
@@ -26,7 +27,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Allow frontend (Member 3) to call this API from browser
+# Allow frontend to call this API from browser
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -53,26 +54,61 @@ async def analyze(
 ):
     """
     Main pipeline endpoint.
-    Accepts an audio file, runs full analysis, returns 14 biomarkers + risk tier.
+    Accepts an audio file (WAV, MP3, M4A, WebM, OGG, FLAC, OPUS),
+    converts to WAV if needed, runs full analysis,
+    returns 14 biomarkers + risk tier.
     """
     start_time = time.time()
 
-    # ── Step 1: Validate file ─────────────────────────────────────────────────
-    if not audio.filename.endswith(('.wav', '.mp3', '.m4a', '.ogg', '.flac', '.webm', '.weba', '.opus')):
+    # ── Step 1: Validate file format ─────────────────────────────────────────
+    SUPPORTED = ('.wav', '.mp3', '.m4a', '.ogg', '.flac', '.webm', '.weba', '.opus')
+    filename_lower = (audio.filename or '').lower()
+
+    if not filename_lower.endswith(SUPPORTED):
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file format. Please upload a WAV, MP3, or M4A file."
+            detail=f"Unsupported file format. Supported formats: {', '.join(SUPPORTED)}"
         )
 
-    # ── Step 2: Save uploaded file to temp location ───────────────────────────
+    # ── Step 2: Save uploaded file, convert to WAV if needed ─────────────────
     temp_dir  = tempfile.mkdtemp()
+    ext       = os.path.splitext(filename_lower)[-1] or '.webm'
+    raw_path  = os.path.join(temp_dir, f"audio_raw_{uuid.uuid4().hex}{ext}")
     temp_path = os.path.join(temp_dir, f"audio_{uuid.uuid4().hex}.wav")
 
     try:
-        with open(temp_path, 'wb') as f:
+        # Save the uploaded file as-is
+        with open(raw_path, 'wb') as f:
             shutil.copyfileobj(audio.file, f)
 
-        print(f"\n[API] Received audio: {audio.filename} → saved to {temp_path}")
+        print(f"\n[API] Received: {audio.filename} ({ext}) → {raw_path}")
+
+        # Convert to WAV using ffmpeg if not already WAV
+        if ext != '.wav':
+            print(f"[API] Converting {ext} → WAV via ffmpeg...")
+            result = subprocess.run(
+                [
+                    'ffmpeg', '-y',          # overwrite output if exists
+                    '-i', raw_path,          # input file
+                    '-ar', '16000',          # 16kHz sample rate (Whisper optimal)
+                    '-ac', '1',              # mono channel
+                    '-f', 'wav',             # force WAV format
+                    temp_path                # output file
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                print(f"[ffmpeg ERROR] {result.stderr[-500:]}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Audio conversion failed: {result.stderr[-200:]}"
+                )
+            print("[API] Conversion done ✅")
+        else:
+            # Already WAV — use directly
+            temp_path = raw_path
 
         # ── Step 3: Transcription ─────────────────────────────────────────────
         print("[API] Running Whisper transcription...")
@@ -98,15 +134,18 @@ async def analyze(
         print(f"[API] ✅ Done in {processing_time}s — Risk Tier: {anomaly_result['risk_tier']}")
 
         return {
-            "session_id":           str(uuid.uuid4()),
-            "user_id":              user_id,
-            "timestamp":            datetime.utcnow().isoformat(),
+            "session_id":              str(uuid.uuid4()),
+            "user_id":                 user_id,
+            "timestamp":               datetime.utcnow().isoformat(),
             "processing_time_seconds": processing_time,
-            "biomarkers":           all_biomarkers,
-            "anomaly_flags":        anomaly_result['anomaly_flags'],
-            "risk_tier":            anomaly_result['risk_tier'],
-            "confidence_intervals": anomaly_result['confidence_intervals'],
+            "biomarkers":              all_biomarkers,
+            "anomaly_flags":           anomaly_result['anomaly_flags'],
+            "risk_tier":               anomaly_result['risk_tier'],
+            "confidence_intervals":    anomaly_result['confidence_intervals'],
         }
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         print(f"[API ERROR] {e}")
@@ -132,17 +171,17 @@ async def compare(
 
     diff = {}
     for key in biomarkers_a:
-        val_a = biomarkers_a.get(key, 0.0)
-        val_b = biomarkers_b.get(key, 0.0)
+        val_a  = biomarkers_a.get(key, 0.0)
+        val_b  = biomarkers_b.get(key, 0.0)
         change = round(val_b - val_a, 4)
         pct    = round((change / val_a * 100), 2) if val_a != 0 else 0.0
 
         diff[key] = {
-            'session_a':    val_a,
-            'session_b':    val_b,
-            'change':       change,
-            'change_pct':   pct,
-            'direction':    'up' if change > 0 else ('down' if change < 0 else 'stable')
+            'session_a':  val_a,
+            'session_b':  val_b,
+            'change':     change,
+            'change_pct': pct,
+            'direction':  'up' if change > 0 else ('down' if change < 0 else 'stable')
         }
 
     return {
@@ -154,5 +193,5 @@ async def compare(
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    print("🚀 Starting CogniSafe AI Pipeline on port 8001...")
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=False)
+    print("🚀 Starting CogniSafe AI Pipeline on port 7860...")
+    uvicorn.run("main:app", host="0.0.0.0", port=7860, reload=False)

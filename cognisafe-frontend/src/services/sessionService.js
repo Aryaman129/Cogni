@@ -27,8 +27,8 @@ export const analyzeAudio = async (audioBlob, userId) => {
   formData.append("user_id", String(userId));
 
   const controller = new AbortController();
-  // ✅ increased from 95s to 290s — HF free tier needs up to 2 mins
-  const timeout    = setTimeout(() => controller.abort(), 290000);
+  // ✅ increased to 480s — covers cold start (2-3 min) + processing (2 min)
+  const timeout    = setTimeout(() => controller.abort(), 480000);
 
   try {
     // ✅ call HF directly instead of Render proxy
@@ -50,7 +50,7 @@ export const analyzeAudio = async (audioBlob, userId) => {
   } catch (err) {
     clearTimeout(timeout);
     if (err.name === "AbortError")
-      throw new Error("Analysis timed out after 290 seconds — please try again.");
+      throw new Error("Analysis timed out — please try again.");
     throw err;
   }
 };
