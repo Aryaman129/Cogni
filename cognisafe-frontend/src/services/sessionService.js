@@ -28,7 +28,7 @@ export const analyzeAudio = async (audioBlob, userId) => {
 
   const controller = new AbortController();
   // ✅ increased to 480s — covers cold start (2-3 min) + processing (2 min)
-  const timeout    = setTimeout(() => controller.abort(), 480000);
+  const timeout    = setTimeout(() => controller.abort(), 600000);
 
   try {
     // ✅ call HF directly instead of Render proxy
