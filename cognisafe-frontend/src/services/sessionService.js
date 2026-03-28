@@ -1,5 +1,5 @@
 const API    = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const AI_URL = import.meta.env.VITE_AI_URL  || "http://localhost:8001";
+const AI_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const authHeaders = (token) => ({
   "Content-Type": "application/json",
@@ -39,7 +39,7 @@ export const analyzeAudio = async (audioBlob, userId) => {
   const timeout    = setTimeout(() => controller.abort(), 95000); // 95s
 
   try {
-    const res = await fetch(`${AI_URL}/analyze`, {
+    const res = await fetch(`${AI_URL}/api/ml/analyze`, {
       method: "POST",
       body:   formData,
       signal: controller.signal,

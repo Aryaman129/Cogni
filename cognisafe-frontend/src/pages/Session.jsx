@@ -31,7 +31,9 @@ const PROMPTS = [
 // ── CONSTANTS ──
 const TOTAL    = 180;   // 3 minutes in seconds
 const CIRC     = 389.6; // 2 * π * 62 (SVG circle circumference)
-const AI_URL   = import.meta.env.VITE_AI_URL  || "http://localhost:8001";
+
+// ✅ CHANGED: AI calls now go through the FastAPI backend proxy instead of
+// calling HF Spaces directly (avoids HTTPS→HTTP mixed-content errors on Vercel)
 const API_URL  = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // ── RESULT MESSAGES ──
@@ -255,7 +257,9 @@ const Session = () => {
           formData.append("audio", audioBlob, "recording.webm");
           formData.append("user_id", String(user?.id || 1));
 
-          const aiRes = await fetch(`${AI_URL}/analyze`, {
+          // ✅ CHANGED: was `${AI_URL}/analyze` (localhost:8001 / HF direct)
+          // Now routes through FastAPI backend proxy → HF Spaces server-to-server
+          const aiRes = await fetch(`${API_URL}/api/ml/analyze`, {
             method: "POST",
             body: formData,
             signal: controller.signal,

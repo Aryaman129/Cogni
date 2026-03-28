@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from models import User, Session  # noqa
 from routes import auth_router, sessions_router, users_router, reports_router
+from routes.ml import ml_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -42,6 +43,7 @@ app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(users_router)
 app.include_router(reports_router)
+app.include_router(ml_router)  
 
 @app.get("/")
 def root():
