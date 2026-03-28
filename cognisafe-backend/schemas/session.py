@@ -40,15 +40,19 @@ class SessionResponse(BaseModel):
     articulation_rate:    Optional[float] = None
     emotional_entropy:    Optional[float] = None
     has_anomaly:          Optional[bool]  = None
+    anomaly_flags:        Optional[str]   = None
 
     class Config:
         from_attributes = True
 
 class HistoryItem(BaseModel):
-    date:       str
-    status:     str
-    risk_tier:  str
-    session_id: int
+    date:               str
+    status:             str
+    risk_tier:          str
+    session_id:         int
+    semantic_coherence: Optional[float] = None
+    speech_rate:        Optional[float] = None
+    pause_frequency:    Optional[float] = None
 
 class TodayResponse(BaseModel):
     recorded:   bool

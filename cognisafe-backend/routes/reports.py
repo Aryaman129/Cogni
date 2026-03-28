@@ -51,7 +51,7 @@ def get_weekly(
 
     narrative = (
         f"This week you completed {len(sessions)} session{'s' if len(sessions) > 1 else ''}. "
-        f"Your semantic coherence averaged {avg_coherence} — "
+        f"Your semantic coherence averaged {avg_coherence}, "
         f"{'above' if avg_coherence >= 0.75 else 'slightly below'} your baseline. "
         f"Overall cognitive health is {overall_risk.lower()}."
     )

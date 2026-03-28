@@ -29,7 +29,6 @@ def get_today(
     db:   DBSession = Depends(get_db),
     user: User      = Depends(get_current_user)
 ):
-    # ── FIX: actually query today's session instead of always returning False ──
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     session = (
         db.query(Session)
@@ -66,7 +65,7 @@ def get_history(
     db:     DBSession = Depends(get_db),
     user:   User      = Depends(get_current_user)
 ):
-    since    = datetime.utcnow() - timedelta(days=30 * months)
+    since = datetime.utcnow() - timedelta(days=30 * months)
     sessions = (
         db.query(Session)
         .filter(Session.user_id == user.id, Session.recorded_at >= since)
@@ -75,12 +74,12 @@ def get_history(
     )
     return [
         HistoryItem(
-            date=s.recorded_at.isoformat(),   # ── FIX: full ISO string so frontend Date() parses correctly
+            date=s.recorded_at.isoformat(),
             status=risk_to_status(s.risk_tier),
             risk_tier=s.risk_tier,
             session_id=s.id,
-            semantic_coherence=s.semantic_coherence,   # ── FIX: include biomarkers
-            speech_rate=s.speech_rate,                 #    for Dashboard calendar
+            semantic_coherence=s.semantic_coherence,
+            speech_rate=s.speech_rate,
             pause_frequency=s.pause_frequency,
         )
         for s in sessions
