@@ -29,7 +29,16 @@ def get_today(
     db:   DBSession = Depends(get_db),
     user: User      = Depends(get_current_user)
 ):
-    return TodayResponse(recorded=False)
+    # ── FIX: actually query today's session instead of always returning False ──
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    session = (
+        db.query(Session)
+        .filter(Session.user_id == user.id, Session.recorded_at >= today_start)
+        .order_by(Session.recorded_at.desc())
+        .first()
+    )
+    if not session:
+        return TodayResponse(recorded=False)
     return TodayResponse(
         recorded=True,
         risk_tier=session.risk_tier,
@@ -53,9 +62,9 @@ def get_latest(
 
 @router.get("/history", response_model=List[HistoryItem])
 def get_history(
-    months: int      = 1,
+    months: int       = 1,
     db:     DBSession = Depends(get_db),
-    user:   User     = Depends(get_current_user)
+    user:   User      = Depends(get_current_user)
 ):
     since    = datetime.utcnow() - timedelta(days=30 * months)
     sessions = (
@@ -66,10 +75,13 @@ def get_history(
     )
     return [
         HistoryItem(
-            date=s.recorded_at.strftime("%Y-%m-%d"),
+            date=s.recorded_at.isoformat(),   # ── FIX: full ISO string so frontend Date() parses correctly
             status=risk_to_status(s.risk_tier),
             risk_tier=s.risk_tier,
             session_id=s.id,
+            semantic_coherence=s.semantic_coherence,   # ── FIX: include biomarkers
+            speech_rate=s.speech_rate,                 #    for Dashboard calendar
+            pause_frequency=s.pause_frequency,
         )
         for s in sessions
     ]
