@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { checkToday, analyzeAudio, saveSession } from "../services/sessionService";
+import { checkToday } from "../services/sessionService";
 import "../styles/session.css";
 
 // ── PROMPTS ──
@@ -29,12 +29,12 @@ const PROMPTS = [
 ];
 
 // ── CONSTANTS ──
-const TOTAL    = 180;   // 3 minutes in seconds
-const CIRC     = 389.6; // 2 * π * 62 (SVG circle circumference)
+const TOTAL   = 180;
+const CIRC    = 389.6;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ✅ CHANGED: AI calls now go through the FastAPI backend proxy instead of
-// calling HF Spaces directly (avoids HTTPS→HTTP mixed-content errors on Vercel)
-const API_URL  = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// ✅ Call HF directly — bypasses Render 30s timeout
+const HF_URL  = "https://alamfarzann-cognisafe-ml.hf.space";
 
 // ── RESULT MESSAGES ──
 const GOOD_MSG = (name) =>
@@ -64,50 +64,45 @@ const Session = () => {
   const navigate  = useNavigate();
   const { token, user, logout } = useAuth();
 
-  // ── Dark mode (synced with localStorage) ──
-  const [dark, setDark] = useState(() => localStorage.getItem("cog_dark") === "true");
+  const [dark, setDark]               = useState(() => localStorage.getItem("cog_dark") === "true");
+  const [prompt]                      = useState(() => PROMPTS[Math.floor(Math.random() * PROMPTS.length)]);
+  const [skipped, setSkipped]         = useState(false);
+  const [state, setState]             = useState("checking");
+  const [secsLeft, setSecsLeft]       = useState(TOTAL);
+  const [progress, setProgress]       = useState(0);
+  const [result, setResult]           = useState(null);
+  const [errorMsg, setErrorMsg]       = useState(null);
+  const [aiWarning, setAiWarning]     = useState(false);
+  const [transcript, setTranscript]   = useState("");
 
-  // ── Prompt ──
-  const [prompt]  = useState(() => PROMPTS[Math.floor(Math.random() * PROMPTS.length)]);
-  const [skipped, setSkipped] = useState(false);
-
-  // ── State machine: checking | idle | recording | analysing | done | donegood | error ──
-  const [state, setState]         = useState("checking");
-  const [secsLeft, setSecsLeft]   = useState(TOTAL);
-  const [progress, setProgress]   = useState(0);
-  const [result, setResult]       = useState(null);
-  const [errorMsg, setErrorMsg]   = useState(null);
-  const [aiWarning, setAiWarning] = useState(false); // true = AI unreachable, used fallback
-  const [transcript, setTranscript] = useState("");
-
-  // ── Refs ──
-  const timerRef   = useRef(null);
-  const progRef    = useRef(null);
-  const mrRef      = useRef(null);
-  const chunksRef  = useRef([]);
-  const resultRef  = useRef(null);
+  const timerRef       = useRef(null);
+  const progRef        = useRef(null);
+  const mrRef          = useRef(null);
+  const chunksRef      = useRef([]);
+  const resultRef      = useRef(null);
   const abortRef       = useRef(null);
   const recognitionRef = useRef(null);
 
-  // ── Toggle dark mode ──
   const toggleDark = () => {
     const next = !dark;
     setDark(next);
     localStorage.setItem("cog_dark", String(next));
   };
 
+  // ✅ Warm up HF Space the moment user opens the session page
+  useEffect(() => {
+    fetch(`${HF_URL}/health`).catch(() => {});
+  }, []);
+
   // ── On mount: check if already recorded today ──
   useEffect(() => {
     const check = async () => {
-      // First check localStorage for quick answer
-      const lastSess  = localStorage.getItem("cog_last_session");
-      const lastTier  = localStorage.getItem("cog_last_result_tier");
+      const lastSess = localStorage.getItem("cog_last_session");
+      const lastTier = localStorage.getItem("cog_last_result_tier");
       if (lastSess && lastTier === "Green") {
         const sameDay = new Date(lastSess).toDateString() === new Date().toDateString();
         if (sameDay) { setState("donegood"); return; }
       }
-
-      // Then confirm with backend (in case they cleared localStorage)
       if (token) {
         try {
           const res = await checkToday(token);
@@ -116,7 +111,7 @@ const Session = () => {
             return;
           }
         } catch {
-          // Backend check failed — just fall through to idle
+          // fall through to idle
         }
       }
       setState("idle");
@@ -137,7 +132,6 @@ const Session = () => {
     };
   }, []);
 
-  // ── Timer ring: stroke offset + color ──
   const offset      = CIRC * (secsLeft / TOTAL);
   const strokeColor = secsLeft / TOTAL > 0.5
     ? "url(#tg)"
@@ -148,7 +142,6 @@ const Session = () => {
     setErrorMsg(null);
     setAiWarning(false);
 
-    // Try to get mic
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
@@ -161,10 +154,8 @@ const Session = () => {
       mr.start(250);
     } catch (err) {
       console.warn("Mic access denied or unavailable:", err.message);
-      // Continue without mic — will use mock result for demo
     }
 
-    // Start Speech Recognition
     setTranscript("");
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -172,7 +163,6 @@ const Session = () => {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-      
       recognition.onresult = (event) => {
         let currentTranscript = "";
         for (let i = 0; i < event.results.length; i++) {
@@ -180,11 +170,9 @@ const Session = () => {
         }
         setTranscript(currentTranscript);
       };
-      
       recognition.onerror = (event) => {
         console.warn("Speech recognition error", event.error);
       };
-      
       try {
         recognition.start();
         recognitionRef.current = recognition;
@@ -197,7 +185,6 @@ const Session = () => {
     setSecsLeft(TOTAL);
     setProgress(0);
 
-    // Countdown timer
     timerRef.current = setInterval(() => {
       setSecsLeft(prev => {
         const next = prev - 1;
@@ -213,10 +200,8 @@ const Session = () => {
 
   // ── STOP RECORDING + SEND TO AI ──
   const stopRecording = useCallback(async () => {
-    // Stop timer
     clearInterval(timerRef.current);
 
-    // Stop MediaRecorder and get blob
     let audioBlob = null;
     if (mrRef.current && mrRef.current.state !== "inactive") {
       await new Promise((resolve) => {
@@ -237,33 +222,37 @@ const Session = () => {
     setState("analysing");
     setProgress(55);
 
-    // Animate progress bar from 55% → 98% while waiting for AI
+    // Slower progress animation — HF can take 60-120s
     let p = 55;
     progRef.current = setInterval(() => {
-      p += 0.4;
+      p += 0.1;
       setProgress(Math.min(p, 98));
     }, 100);
 
     try {
       let aiResult;
 
-      // ── Try real AI call ──
       if (audioBlob && audioBlob.size > 1000) {
         try {
           const controller = new AbortController();
           abortRef.current = controller;
 
           const formData = new FormData();
+          // ✅ send as .webm — HF Space accepts it after our fix
           formData.append("audio", audioBlob, "recording.webm");
           formData.append("user_id", String(user?.id || 1));
 
-          // ✅ CHANGED: was `${AI_URL}/analyze` (localhost:8001 / HF direct)
-          // Now routes through FastAPI backend proxy → HF Spaces server-to-server
-          const aiRes = await fetch(`${API_URL}/api/ml/analyze`, {
+          // ✅ 290s timeout — HF needs up to 2 mins on free tier
+          const timeoutId = setTimeout(() => controller.abort(), 290000);
+
+          // ✅ call HF directly — no Render proxy, no 30s limit
+          const aiRes = await fetch(`${HF_URL}/analyze`, {
             method: "POST",
             body: formData,
             signal: controller.signal,
           });
+
+          clearTimeout(timeoutId);
 
           if (!aiRes.ok) {
             const err = await aiRes.json().catch(() => ({}));
@@ -271,41 +260,36 @@ const Session = () => {
           }
 
           aiResult = await aiRes.json();
+
         } catch (aiErr) {
-          if (aiErr.name === "AbortError") throw new Error("Analysis was cancelled.");
+          if (aiErr.name === "AbortError") throw new Error("Analysis timed out after 290s — please try again.");
           console.warn("AI service error, using fallback:", aiErr.message);
           setAiWarning(true);
-          // Fallback mock result so the demo still works
           aiResult = buildMockResult();
         }
       } else {
-        // No audio blob (mic denied) — use mock
         console.warn("No audio recorded, using mock result for demo.");
         setAiWarning(true);
         aiResult = buildMockResult();
       }
 
-      // ── Save to backend ──
+      // ── Save to Render backend (fast call, well under 30s) ──
       if (token) {
         try {
           await saveSessionToBackend(token, aiResult);
         } catch (saveErr) {
           console.warn("Failed to save session to backend:", saveErr.message);
-          // Don't block the user — just warn in console
         }
       }
 
-      // ── Update localStorage ──
       localStorage.setItem("cog_last_session", new Date().toISOString());
       localStorage.setItem("cog_last_result_tier", aiResult.risk_tier);
 
-      // ── Show result ──
       clearInterval(progRef.current);
       setProgress(100);
       setResult(aiResult);
       setState("done");
 
-      // Scroll result into view
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 200);
 
     } catch (err) {
@@ -345,7 +329,6 @@ const Session = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ── Derived values ──
   const riskBadgeCls = !result ? "rb-green"
     : result.risk_tier === "Green"  ? "rb-green"
     : result.risk_tier === "Yellow" ? "rb-yellow"
@@ -358,13 +341,11 @@ const Session = () => {
     if (!result) return "";
     if (result.risk_tier === "Green")  return GOOD_MSG(userName);
     if (result.risk_tier === "Yellow") return WARN_MSG();
-    if(result.risk_tier === "Orange" || result.risk_tier === "Red")
-    return BAD_MSG(userName);
+    if (result.risk_tier === "Orange" || result.risk_tier === "Red") return BAD_MSG(userName);
   };
 
   const canRetry = result && result.risk_tier !== "Green";
 
-  // ── NAV LINKS ──
   const NAV_LINKS = [
     ["Dashboard", "/dashboard"],
     ["Session",   "/session"],
@@ -372,11 +353,9 @@ const Session = () => {
     ["Report",    "/ar-report"],
   ];
 
-  // ── RENDER ──
   return (
     <div className={`session-root ${dark ? "dm" : "lm"}`}>
 
-      {/* ── NAV ── */}
       <nav className="dash-nav">
         <a href="/dashboard" className="nav-logo">
           <div className="nav-logo-box"><LogoIcon /></div>
@@ -408,10 +387,8 @@ const Session = () => {
         </div>
       </nav>
 
-      {/* ── PAGE ── */}
       <div className="session-page">
 
-        {/* ── CHECKING STATE ── */}
         {state === "checking" && (
           <div className="done-today-card" style={{ textAlign: "center", padding: "48px 32px" }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>🧠</div>
@@ -421,7 +398,6 @@ const Session = () => {
           </div>
         )}
 
-        {/* ── DONE TODAY ── */}
         {state === "donegood" && (
           <div className="done-today-card">
             <div className="done-icon">🌿</div>
@@ -449,7 +425,6 @@ const Session = () => {
           </div>
         )}
 
-        {/* ── ERROR STATE ── */}
         {state === "error" && (
           <div className="done-today-card" style={{ borderColor: "var(--danger)" }}>
             <div className="done-icon">⚠️</div>
@@ -466,10 +441,8 @@ const Session = () => {
           </div>
         )}
 
-        {/* ── MAIN SESSION VIEW ── */}
         {(state === "idle" || state === "recording" || state === "analysing" || state === "done") && (
           <>
-            {/* ── PROMPT / FREE SPEAK ── */}
             {!skipped ? (
               <div className="s-card">
                 <div className="prompt-eyebrow">
@@ -497,13 +470,9 @@ const Session = () => {
               </div>
             )}
 
-            {/* ── ORB + STATUS + PROGRESS ── */}
             <div className="s-card">
-
-              {/* ORB AREA */}
               <div className="orb-block">
 
-                {/* IDLE — pulsing rings */}
                 {state === "idle" && (
                   <div className="orb-idle">
                     <div className="orb-ring orb-ring-1" />
@@ -513,7 +482,6 @@ const Session = () => {
                   </div>
                 )}
 
-                {/* RECORDING — timer ring with countdown */}
                 {state === "recording" && (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                     <div className="timer-ring-wrap">
@@ -540,7 +508,6 @@ const Session = () => {
                   </div>
                 )}
 
-                {/* ANALYSING — spinner */}
                 {state === "analysing" && (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                     <div className="timer-ring-wrap">
@@ -563,7 +530,6 @@ const Session = () => {
                   </div>
                 )}
 
-                {/* DONE — checkmark */}
                 {state === "done" && (
                   <div className="orb-idle">
                     <div className="orb done">✓</div>
@@ -572,17 +538,16 @@ const Session = () => {
 
               </div>
 
-              {/* STATUS PILL */}
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
                 <div className={`status-pill ${
-                  state === "idle"       ? "sp-idle"
+                  state === "idle"        ? "sp-idle"
                   : state === "recording" ? "sp-rec"
                   : state === "analysing" ? "sp-ana"
                   : "sp-done"
                 }`}>
                   <span className="sp-dot" />
                   <span>
-                    {state === "idle"       ? "Ready to record"
+                    {state === "idle"        ? "Ready to record"
                       : state === "recording" ? `Recording… ${fmt(secsLeft)}`
                       : state === "analysing" ? "Analysing your voice…"
                       : "Analysis complete ✓"}
@@ -590,7 +555,6 @@ const Session = () => {
                 </div>
               </div>
 
-              {/* PROGRESS BAR */}
               <div className="progress-wrap">
                 <div className="progress-labels">
                   <span className={`progress-label ${state === "idle" || state === "recording" ? "active" : ""}`}>
@@ -608,7 +572,6 @@ const Session = () => {
                 </div>
               </div>
 
-              {/* BUTTONS */}
               {state !== "done" && (
                 <div className="btn-row">
                   <button
@@ -629,7 +592,6 @@ const Session = () => {
                 </div>
               )}
 
-              {/* LIVE TRANSCRIPT */}
               {state === "recording" && transcript && (
                 <div style={{ marginTop: 24, padding: 16, borderRadius: 12, background: "var(--card2)", color: "var(--text2)", fontSize: 15, lineHeight: 1.6, maxHeight: 110, overflowY: "auto", textAlign: "center", border: "1px solid var(--border)" }}>
                   <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700, marginBottom: 8, color: "var(--text3)", fontStyle: "normal" }}>Live Transcript</div>
@@ -637,14 +599,12 @@ const Session = () => {
                 </div>
               )}
 
-              {/* ANALYSIS NOTICE — shown while waiting for AI */}
               {state === "analysing" && (
                 <div className="analysis-notice">
-                  ⏳ AI analysis takes up to 90 seconds — please keep this tab open
+                  ⏳ AI analysis takes 60–120 seconds — please keep this tab open
                 </div>
               )}
 
-              {/* AI FALLBACK WARNING — shown after result if AI was unreachable */}
               {state === "done" && aiWarning && (
                 <div className="analysis-notice" style={{
                   marginTop: 12,
@@ -659,7 +619,6 @@ const Session = () => {
 
             </div>
 
-            {/* ── RESULT CARD — appears below and scrolls into view ── */}
             {state === "done" && result && (
               <div className="result-section" ref={resultRef}>
                 <div className="result-card">
@@ -672,7 +631,7 @@ const Session = () => {
                     </div>
                     <div className={`result-badge ${riskBadgeCls}`}>
                       ● {result.risk_tier} — {
-                        result.risk_tier === "Green" ? "Good"
+                        result.risk_tier === "Green"  ? "Good"
                         : result.risk_tier === "Yellow" ? "Watch"
                         : result.risk_tier === "Orange" ? "Elevated"
                         : "Alert"
@@ -680,7 +639,6 @@ const Session = () => {
                     </div>
                   </div>
 
-                  {/* Metrics grid */}
                   <div className="metrics-grid">
                     <div className="metric-item">
                       <div className="metric-label">Semantic coherence</div>
@@ -719,7 +677,7 @@ const Session = () => {
                       <div className="metric-label">Risk tier</div>
                       <div className="metric-value"
                         style={{ color: `var(--${
-                          result.risk_tier === "Green" ? "success"
+                          result.risk_tier === "Green"  ? "success"
                           : result.risk_tier === "Yellow" ? "warn"
                           : result.risk_tier === "Orange" ? "var(--amber)"
                           : "danger"
@@ -730,11 +688,9 @@ const Session = () => {
                     </div>
                   </div>
 
-                  {/* AI message */}
                   <div className="result-message"
                     dangerouslySetInnerHTML={{ __html: getMessage() }} />
 
-                  {/* Actions */}
                   <div className="result-actions">
                     <button className="ra-primary" onClick={() => navigate("/dashboard")}>
                       View dashboard
@@ -751,16 +707,14 @@ const Session = () => {
                 </div>
               </div>
             )}
-
           </>
         )}
-
       </div>
     </div>
   );
 };
 
-// ── HELPERS (outside component to avoid re-creation) ──
+// ── HELPERS ──
 
 function buildMockResult() {
   return {
