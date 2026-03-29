@@ -110,13 +110,13 @@ By analyzing **14 voice biomarkers** across acoustic, linguistic, and cognitive 
 ┌─────────────────────────────────────────────────────────────┐
 │                        USER BROWSER                         │
 │                                                             │
-│   ┌─────────────┐    Records Audio (WebM)                  │
-│   │  React.js   │ ──────────────────────────────────┐      │
-│   │  Frontend   │                                   │      │
-│   │  (Vercel)   │ ◄── Session Results + Biomarkers  │      │
-│   └─────────────┘                                   │      │
-│          │                                          │      │
-└──────────│──────────────────────────────────────────│──────┘
+│   ┌─────────────┐    Records Audio (WebM)                   │
+│   │  React.js   │ ──────────────────────────────────┐       │
+│   │  Frontend   │                                   │       │
+│   │  (Vercel)   │ ◄── Session Results + Biomarkers  │       │
+│   └─────────────┘                                   │       │
+│          │                                          │       │
+└──────────│──────────────────────────────────────────│───────┘
            │ REST API calls                           │
            │ (auth, sessions, history)                │ Direct ML call
            ▼                                          ▼
