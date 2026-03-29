@@ -488,7 +488,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**Built with 💙 by Team SyntaxSaviour**
+**Built with 💙 by Team FAIV**
 
 *"We are not building an app.*
 *We are building the world's largest longitudinal cognitive dataset —*
