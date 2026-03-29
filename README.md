@@ -423,10 +423,10 @@ Accepts two session JSON objects, returns a biomarker diff showing direction and
 
 | Member | Role | Responsibilities |
 |---|---|---|
-| **Farzan Alam** | 🤖 AI/ML Engineer | Voice biomarker pipeline, Whisper, openSMILE, NLP, anomaly detection, FastAPI, HuggingFace deployment |
-| **Ishika Rawat** | ⚙️ Backend Engineer | FastAPI backend, PostgreSQL, JWT auth, session APIs, report generation |
-| **Member 3** | 🎨 Frontend Engineer | React UI, Three.js 3D sphere, voice orb, dashboard, caregiver view |
-| **Member 4** | 📋 Product & Demo Lead | Demo scripting, integration QA, business docs, presentation |
+| **Farjan Alam** | 🤖 AI/ML Engineer | Voice biomarker pipeline, Whisper, openSMILE, NLP, anomaly detection, FastAPI, HuggingFace deployment |
+| **Vansh Singh** | ⚙️ Backend Engineer | FastAPI backend, PostgreSQL, JWT auth, session APIs, report generation |
+| **Ishika Rawat** | 🎨 Frontend Engineer | React UI, Three.js 3D sphere, voice orb, dashboard, caregiver view |
+| **Akansha Parley** | 📋 Product & Demo Lead | Demo scripting, integration QA, business docs, presentation |
 
 ---
 
