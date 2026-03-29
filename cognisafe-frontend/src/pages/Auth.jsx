@@ -183,17 +183,22 @@ const Auth = () => {
   const handleSubmit = async () => {
     if (!validate()) return;
     setState("loading");
+    const emailTrimmed = form.email.trim();
+    const passwordTrimmed = form.password.trim();
+    const firstNameTrimmed = form.firstName.trim();
+    const lastNameTrimmed = form.lastName.trim();
+
     try {
       let tokenData;
       if (isReg) {
         tokenData = await registerUser(
-          form.firstName + " " + form.lastName,
-          form.email,
-          form.password,
+          firstNameTrimmed + " " + lastNameTrimmed,
+          emailTrimmed,
+          passwordTrimmed,
           form.dob || null
         );
       } else {
-        tokenData = await loginUser(form.email, form.password);
+        tokenData = await loginUser(emailTrimmed, passwordTrimmed);
       }
       login(tokenData);
       setState("success");
