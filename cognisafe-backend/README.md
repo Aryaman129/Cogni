@@ -123,15 +123,8 @@ cognisafe-backend/
 | `anomaly_flags` | String | JSON array of flag objects |
 
 ### ER Diagram
-```
-users (1) ────────── (N) sessions
-  id ◄──────────────── user_id (FK)
-  name                 id, risk_tier, recorded_at
-  email                [14 biomarker columns]
-  password_hash        has_anomaly, anomaly_flags
-```
 
----
+![ER DIAGRAM](../assets/backend_er.png)
 
 ## 📡 API Reference
 
