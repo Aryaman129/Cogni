@@ -314,7 +314,6 @@ VITE_API_URL=https://your-backend.onrender.com
 | `/session` | `Session.jsx` | ✅ | Voice recording |
 | `/ar-report` | `ARReport.jsx` | ✅ | Report + PDF export |
 
-```
 
 ---
 
