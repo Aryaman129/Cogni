@@ -254,8 +254,7 @@ getTrajectory(token, months)      // → [ TrajectoryPoint ]
 
 ## 🔐 Authentication Flow
 
-![AUTHENTICATION FLOW](./assets/frontend_1.png "Optional title")
-
+![AUTHENTICATION FLOW](./assets/frontend_1.png)
 ## 🚀 Getting Started
 
 ```bash
