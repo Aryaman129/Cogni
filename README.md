@@ -150,9 +150,7 @@ Real-time risk assessment with color-coded tiers:
 
 The CogniSafe platform is built as a **distributed system** with three main components: Frontend (React), Backend (FastAPI), and AI/ML Pipeline (Python + ML frameworks).
 
-```
-![System Architecture](./assets/architecture.png)
-```
+![System Architecture](./assets/architecture_cognisafe.png)
 
 ### Key Design Principles
 
