@@ -5,41 +5,36 @@
 # ⚙️ CogniSafe Backend
 ### *The nervous system of cognitive health monitoring.*
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python)](https://python.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Latest-4169E1?style=for-the-badge&logo=postgresql)](https://postgresql.org)
-[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-D71F00?style=for-the-badge)](https://sqlalchemy.org)
-[![JWT](https://img.shields.io/badge/Auth-JWT%20Bearer-000000?style=for-the-badge&logo=jsonwebtokens)](https://jwt.io)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python)](https://python.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql)](https://postgresql.org)
+[![JWT](https://img.shields.io/badge/Auth-JWT-000?style=flat-square&logo=jsonwebtokens)](https://jwt.io)
+[![License](https://img.shields.io/badge/License-MIT-brightgreen?style=flat-square)](../LICENSE)
 
 </div>
 
 ---
 
-## 📖 Table of Contents
+## 📖 Contents
 
-- [Overview](#-overview)
-- [Project Structure](#-project-structure)
-- [Tech Stack](#-tech-stack)
-- [Database Schema](#-database-schema)
-- [API Reference](#-api-reference)
-- [Authentication](#-authentication)
-- [Getting Started](#-getting-started)
-- [Environment Variables](#-environment-variables)
-- [Demo Data Seeding](#-demo-data-seeding)
-- [ML Pipeline Integration](#-ml-pipeline-integration)
+[Overview](#-overview) · [Structure](#-project-structure) · [Tech Stack](#-tech-stack) · [Database Schema](#️-database-schema) · [API Reference](#-api-reference) · [Authentication](#-authentication) · [Getting Started](#-getting-started) · [Environment Variables](#-environment-variables) · [Demo Seeding](#-demo-data-seeding) · [ML Integration](#-ml-pipeline-integration)
 
 ---
 
 ## 🧠 Overview
 
-The CogniSafe backend is a **FastAPI REST API** that acts as the connective layer between the React frontend and the AI/ML pipeline. It handles:
+A **FastAPI REST API** — the connective layer between the React frontend and the AI/ML pipeline.
 
-- 🔐 **User authentication** — JWT-based register/login
-- 💾 **Session persistence** — stores all 14 biomarkers per session in PostgreSQL
-- 📊 **Trend & history APIs** — powers the dashboard sparklines and calendar heatmap
-- 📄 **Weekly report generation** — computes narrative insights from biomarker averages
-- 📈 **Trajectory scoring** — monthly cognitive pulse score over time
-- 🤖 **ML proxy** — optional proxy route to the HuggingFace ML service
+| Responsibility | Detail |
+|---|---|
+| 🔐 **Auth** | JWT register/login, bcrypt password hashing |
+| 💾 **Session storage** | Persists all 14 biomarkers per session in PostgreSQL |
+| 📊 **Trends & history** | Powers dashboard sparklines and calendar heatmap |
+| 📄 **Weekly reports** | Computes narrative insights from biomarker averages |
+| 📈 **Trajectory scoring** | Monthly cognitive pulse score (0–100) over time |
+| 🤖 **ML proxy** | Optional fallback proxy to the HuggingFace ML service |
+
+> Auto-generated docs at `http://localhost:8000/docs` (Swagger) and `/redoc`.
 
 ---
 
@@ -47,32 +42,28 @@ The CogniSafe backend is a **FastAPI REST API** that acts as the connective laye
 
 ```
 cognisafe-backend/
-│
-├── main.py                  # FastAPI app entry point, CORS, startup hooks
-├── database.py              # SQLAlchemy engine + session factory
-├── auth.py                  # Password hashing, JWT creation + decoding
-├── dependencies.py          # get_current_user dependency injection
-├── seed.py                  # Demo data seeder (6 months of sessions)
-├── requirements.txt         # Python dependencies
+├── main.py              # FastAPI entry point, CORS, startup hooks
+├── database.py          # SQLAlchemy engine + session factory
+├── auth.py              # Password hashing, JWT creation + decoding
+├── dependencies.py      # get_current_user dependency injection
+├── seed.py              # Demo data seeder (6 months of sessions)
+├── requirements.txt
 │
 ├── models/
-│   ├── __init__.py          # Exports User, Session
-│   ├── user.py              # User SQLAlchemy model
-│   └── session.py           # Session SQLAlchemy model (14 biomarkers)
+│   ├── user.py          # User SQLAlchemy model
+│   └── session.py       # Session model (14 biomarker columns)
 │
 ├── schemas/
-│   ├── __init__.py          # Exports all Pydantic schemas
-│   ├── auth.py              # RegisterRequest, LoginRequest, TokenResponse
-│   ├── session.py           # SessionCreate, SessionResponse, HistoryItem, TodayResponse
-│   └── user.py              # UserResponse
+│   ├── auth.py          # RegisterRequest, LoginRequest, TokenResponse
+│   ├── session.py       # SessionCreate, SessionResponse, HistoryItem
+│   └── user.py          # UserResponse
 │
 └── routes/
-    ├── __init__.py          # Exports all routers
-    ├── auth.py              # POST /api/auth/register, /api/auth/login
-    ├── sessions.py          # POST/GET /api/sessions/*
-    ├── reports.py           # GET /api/reports/weekly, /api/reports/trajectory
-    ├── users.py             # GET /api/users/me
-    └── ml.py                # POST /api/ml/analyze, GET /api/ml/warmup
+    ├── auth.py          # POST /api/auth/register, /login
+    ├── sessions.py      # POST/GET /api/sessions/*
+    ├── reports.py       # GET /api/reports/weekly, /trajectory
+    ├── users.py         # GET /api/users/me
+    └── ml.py            # POST /api/ml/analyze, GET /api/ml/warmup
 ```
 
 ---
@@ -81,429 +72,209 @@ cognisafe-backend/
 
 | Tool | Purpose |
 |---|---|
-| **FastAPI** | Web framework — async, fast, auto-docs |
-| **SQLAlchemy** | ORM for PostgreSQL / SQLite |
-| **PostgreSQL** | Production database |
-| **SQLite** | Local development fallback (zero config) |
-| **python-jose** | JWT token creation and decoding |
-| **passlib + bcrypt** | Password hashing |
-| **python-dotenv** | Environment variable management |
-| **httpx** | Async HTTP client for ML proxy calls |
-| **Pydantic v2** | Request/response schema validation |
-| **Uvicorn** | ASGI server |
+| FastAPI | Async web framework, auto-docs |
+| SQLAlchemy | ORM for PostgreSQL / SQLite |
+| PostgreSQL | Production database |
+| SQLite | Local dev fallback (zero config) |
+| python-jose | JWT creation and decoding |
+| passlib + bcrypt | Password hashing |
+| httpx | Async HTTP client for ML proxy |
+| Pydantic v2 | Request/response validation |
+| Uvicorn | ASGI server |
 
 ---
 
 ## 🗄️ Database Schema
 
-### `users` table
+### `users`
 
-| Column | Type | Description |
+| Column | Type | Notes |
 |---|---|---|
-| `id` | Integer PK | Auto-increment user ID |
+| `id` | Integer PK | Auto-increment |
 | `name` | String | Full name |
 | `email` | String (unique) | Login email |
-| `password_hash` | String | bcrypt hashed password |
-| `dob` | String | Date of birth (YYYY-MM-DD) |
-| `created_at` | DateTime | Account creation timestamp |
+| `password_hash` | String | bcrypt hashed |
+| `dob` | String | YYYY-MM-DD |
+| `created_at` | DateTime | Auto-set |
 
-### `sessions` table
+### `sessions`
 
-| Column | Type | Description |
+| Column | Type | Notes |
 |---|---|---|
-| `id` | Integer PK | Auto-increment session ID |
-| `user_id` | FK → users.id | Owner of this session |
+| `id` | Integer PK | Auto-increment |
+| `user_id` | FK → users.id | Session owner |
 | `risk_tier` | String | Green / Yellow / Orange / Red |
-| `recorded_at` | DateTime | When the session was recorded |
-| `semantic_coherence` | Float | Sentence-to-sentence logical flow (0-1) |
-| `lexical_diversity` | Float | MTLD vocabulary richness score |
-| `idea_density` | Float | Propositions per word (0-1) |
-| `speech_rate` | Float | Words per minute |
-| `pause_frequency` | Float | Pauses per minute |
-| `pause_duration` | Float | Mean pause duration (seconds) |
-| `pitch_mean` | Float | Average fundamental frequency |
-| `pitch_range` | Float | Pitch variability |
-| `jitter` | Float | Cycle-to-cycle pitch variation |
+| `recorded_at` | DateTime | Session timestamp |
+| `semantic_coherence` | Float | 0–1 |
+| `lexical_diversity` | Float | MTLD score |
+| `idea_density` | Float | 0–1 |
+| `speech_rate` | Float | Words/min |
+| `pause_frequency` | Float | Pauses/min |
+| `pause_duration` | Float | Mean seconds |
+| `pitch_mean` | Float | Hz |
+| `pitch_range` | Float | Variability |
+| `jitter` | Float | Cycle-to-cycle F0 |
 | `shimmer` | Float | Amplitude variation |
 | `hnr` | Float | Harmonics-to-noise ratio |
-| `syntactic_complexity` | Float | Average parse tree depth |
-| `articulation_rate` | Float | Words per minute excluding pauses |
-| `emotional_entropy` | Float | Emotional variability index |
-| `has_anomaly` | Boolean | True if any biomarker flagged |
-| `anomaly_flags` | String | JSON string of anomaly flag objects |
+| `syntactic_complexity` | Float | Parse tree depth |
+| `articulation_rate` | Float | WPM excl. pauses |
+| `emotional_entropy` | Float | Emotional variability |
+| `has_anomaly` | Boolean | Any biomarker flagged |
+| `anomaly_flags` | String | JSON array of flag objects |
 
-### Entity Relationship
-
+### ER Diagram
 ```
-┌─────────────┐         ┌──────────────────────┐
-│    users    │         │       sessions        │
-│─────────────│         │──────────────────────│
-│ id (PK)     │◄────────│ user_id (FK)          │
-│ name        │  1  : N │ id (PK)               │
-│ email       │         │ risk_tier             │
-│ password    │         │ recorded_at           │
-│ dob         │         │ [14 biomarker columns]│
-│ created_at  │         │ has_anomaly           │
-└─────────────┘         │ anomaly_flags         │
-                        └──────────────────────┘
+users (1) ────────── (N) sessions
+  id ◄──────────────── user_id (FK)
+  name                 id, risk_tier, recorded_at
+  email                [14 biomarker columns]
+  password_hash        has_anomaly, anomaly_flags
 ```
 
 ---
 
 ## 📡 API Reference
 
-Base URL: `http://localhost:8000`
-
-### 🔐 Auth Routes — `/api/auth`
+**Base URL:** `http://localhost:8000`
 
 ---
+
+### 🔐 `/api/auth`
 
 #### `POST /api/auth/register`
-
-Register a new user account.
-
-**Request Body:**
 ```json
-{
-  "name": "Arjun Sharma",
-  "email": "arjun@example.com",
-  "password": "securepass123",
-  "dob": "1968-05-14"
-}
+// Request
+{ "name": "Arjun Sharma", "email": "arjun@example.com", "password": "pass123", "dob": "1968-05-14" }
+
+// Response 200
+{ "access_token": "eyJ...", "user_id": 1, "name": "Arjun Sharma", "email": "arjun@example.com" }
+// Error: 400 — Email already registered
 ```
-
-**Response `200`:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user_id": 1,
-  "name": "Arjun Sharma",
-  "email": "arjun@example.com"
-}
-```
-
-**Errors:**
-- `400` — Email already registered
-
----
 
 #### `POST /api/auth/login`
-
-Login with email and password.
-
-**Request Body:**
 ```json
-{
-  "email": "arjun@example.com",
-  "password": "securepass123"
-}
-```
+// Request
+{ "email": "arjun@example.com", "password": "pass123" }
 
-**Response `200`:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user_id": 1,
-  "name": "Arjun Sharma",
-  "email": "arjun@example.com"
-}
-```
-
-**Errors:**
-- `401` — Invalid email or password
-
----
-
-### 🎙️ Session Routes — `/api/sessions`
-
-> All session routes require `Authorization: Bearer <token>` header.
-
----
-
-#### `POST /api/sessions`
-
-Save ML analysis results to the database.
-
-**Request Body:**
-```json
-{
-  "risk_tier": "Yellow",
-  "semantic_coherence": 0.3447,
-  "lexical_diversity": 178.52,
-  "idea_density": 0.4201,
-  "speech_rate": 146.99,
-  "pause_frequency": 26.85,
-  "pause_duration": 0.476,
-  "pitch_mean": 33.42,
-  "pitch_range": 8.06,
-  "jitter": 0.0517,
-  "shimmer": 1.272,
-  "hnr": 5.61,
-  "syntactic_complexity": 5.077,
-  "articulation_rate": 205.59,
-  "emotional_entropy": null,
-  "has_anomaly": true,
-  "anomaly_flags": "[{\"biomarker\": \"semantic_coherence\", \"severity\": \"mild\"}]"
-}
-```
-
-**Response `200`:**
-```json
-{
-  "id": 42,
-  "risk_tier": "Yellow",
-  "recorded_at": "2026-03-29T10:30:00",
-  "semantic_coherence": 0.3447,
-  ...all 14 biomarkers...
-  "has_anomaly": true,
-  "anomaly_flags": "[...]"
-}
+// Response 200
+{ "access_token": "eyJ...", "user_id": 1, "name": "Arjun Sharma", "email": "arjun@example.com" }
+// Error: 401 — Invalid credentials
 ```
 
 ---
+
+### 🎙️ `/api/sessions`
+> All routes require `Authorization: Bearer <token>`
+
+#### `POST /api/sessions` — Save ML results
+```json
+// Request body: all 14 biomarkers + risk_tier + has_anomaly + anomaly_flags
+// Response 200: saved session object with id + recorded_at
+```
 
 #### `GET /api/sessions/today`
-
-Check if the current user has already recorded a session today.
-
-**Response `200` (recorded):**
 ```json
-{
-  "recorded": true,
-  "risk_tier": "Green",
-  "session_id": 42
-}
+// Recorded:     { "recorded": true,  "risk_tier": "Green",  "session_id": 42 }
+// Not recorded: { "recorded": false, "risk_tier": null,     "session_id": null }
 ```
-
-**Response `200` (not recorded):**
-```json
-{
-  "recorded": false,
-  "risk_tier": null,
-  "session_id": null
-}
-```
-
----
 
 #### `GET /api/sessions/latest`
-
-Get the most recent session for the current user.
-
-**Response `200`:**
 ```json
+// Response 200: full session object with all 14 biomarkers
+// Error: 404 — No sessions found
+```
+
+#### `GET /api/sessions/history?months=1`
+```json
+// Response 200 — array of:
 {
-  "id": 42,
+  "date": "2026-03-29T10:30:00",
+  "status": "good",          // "good" | "warn" | "bad"
   "risk_tier": "Green",
-  "recorded_at": "2026-03-29T10:30:00",
-  ...all 14 biomarkers...
+  "session_id": 42,
+  "semantic_coherence": 0.34,
+  "speech_rate": 146.99,
+  "pause_frequency": 26.85
 }
 ```
 
-**Errors:**
-- `404` — No sessions found
-
 ---
 
-#### `GET /api/sessions/history?months=1`
-
-Get session history for the past N months.
-
-**Query Params:**
-
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `months` | int | `1` | Number of months to look back |
-
-**Response `200`:**
-```json
-[
-  {
-    "date": "2026-03-29T10:30:00",
-    "status": "good",
-    "risk_tier": "Green",
-    "session_id": 42,
-    "semantic_coherence": 0.3447,
-    "speech_rate": 146.99,
-    "pause_frequency": 26.85
-  }
-]
-```
-
-> `status` is a frontend-friendly string: `"good"` (Green), `"warn"` (Yellow), `"bad"` (Red)
-
----
-
-### 📄 Report Routes — `/api/reports`
-
-> All report routes require `Authorization: Bearer <token>` header.
-
----
+### 📄 `/api/reports`
+> All routes require `Authorization: Bearer <token>`
 
 #### `GET /api/reports/weekly`
-
-Generate a weekly cognitive health report from the past 7 days of sessions.
-
-**Response `200`:**
 ```json
 {
-  "narrative": "This week you completed 5 sessions. Your semantic coherence averaged 0.74, above your baseline. Overall cognitive health is green.",
+  "narrative": "This week you completed 5 sessions. Semantic coherence averaged 0.74...",
   "insights": [
-    {
-      "color": "success",
-      "text": "Semantic coherence averaged 0.74 — above your personal baseline of 0.76."
-    },
-    {
-      "color": "success",
-      "text": "Pause frequency 3.2/min is within your healthy range."
-    },
-    {
-      "color": "indigo",
-      "text": "You recorded 5 out of 7 days. Consistency improves baseline accuracy."
-    }
+    { "color": "success", "text": "Semantic coherence above your baseline." },
+    { "color": "warn",    "text": "Pause frequency slightly elevated." },
+    { "color": "indigo",  "text": "5/7 days recorded — great consistency." }
   ],
   "avg_semantic_coherence": 0.74,
   "avg_speech_rate": 142.3,
-  "avg_pause_frequency": 3.2,
   "sessions_this_week": 5,
   "risk_tier": "Green"
 }
 ```
 
-**Insight Colors:**
-
-| Color | Meaning |
-|---|---|
-| `success` | Positive signal — within healthy range |
-| `warn` | Mild concern — worth monitoring |
-| `indigo` | Informational — consistency metrics |
-
----
+**Insight color keys:** `success` = healthy · `warn` = monitor · `indigo` = informational
 
 #### `GET /api/reports/trajectory?months=6`
 
-Get monthly cognitive pulse scores for trend visualization.
-
-**Query Params:**
-
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `months` | int | `6` | Number of months to look back |
-
-**Scoring Formula:**
+**Scoring formula:**
 ```
-score = (semantic_coherence × 40) +
-        (min(speech_rate / 150 × 20, 20)) +
-        (max(0, 20 - pause_frequency × 3)) +
-        (min(hnr / 25 × 20, 20))
-        
+score = (semantic_coherence × 40)
+      + (min(speech_rate / 150 × 20, 20))
+      + (max(0, 20 − pause_frequency × 3))
+      + (min(hnr / 25 × 20, 20))
 Range: 0–100
 ```
 
-**Response `200`:**
 ```json
-[
-  { "month": "Oct", "score": 78.4, "session_count": 18 },
-  { "month": "Nov", "score": 76.1, "session_count": 21 },
-  { "month": "Dec", "score": 74.8, "session_count": 19 },
-  { "month": "Jan", "score": 73.2, "session_count": 20 },
-  { "month": "Feb", "score": 71.5, "session_count": 17 },
-  { "month": "Mar", "score": 69.8, "session_count": 15 }
-]
+// Response 200 — array of:
+{ "month": "Oct", "score": 78.4, "session_count": 18 }
 ```
 
 ---
 
-### 🤖 ML Proxy Routes — `/api/ml`
-
-Optional proxy routes to the HuggingFace ML service.
-
----
+### 🤖 `/api/ml` — ML Proxy (fallback)
 
 #### `POST /api/ml/analyze`
-
-Proxy audio to the ML pipeline (alternative to calling HF directly).
-
-**Request:** `multipart/form-data`
-- `audio` — audio file
-- `user_id` — string
-
-**Response:** Passes through the full ML response JSON (14 biomarkers + risk tier).
-
-**Errors:**
-- `504` — ML service timed out (120s timeout)
-- `502` — ML service unreachable
-
----
+Proxies audio to HuggingFace. `multipart/form-data`: `audio` + `user_id`.
+Errors: `504` timeout · `502` unreachable.
 
 #### `GET /api/ml/warmup`
-
-Ping the HuggingFace Space to wake it up before a session.
-
-**Response `200` (warmed):**
 ```json
-{
-  "status": "warmed",
-  "hf": { "status": "ok", "service": "CogniSafe AI Pipeline" }
-}
-```
-
-**Response `200` (still warming):**
-```json
-{
-  "status": "warming",
-  "detail": "Connection timeout"
-}
+// Warmed:   { "status": "warmed",  "hf": { "status": "ok" } }
+// Warming:  { "status": "warming", "detail": "Connection timeout" }
 ```
 
 ---
 
-### 🏥 Health Check
+### 🏥 Health
 
-#### `GET /health`
-
-```json
-{ "status": "ok" }
 ```
-
-#### `GET /`
-
-```json
-{ "status": "CogniSafe API running", "version": "1.0.0" }
+GET /health  →  { "status": "ok" }
+GET /        →  { "status": "CogniSafe API running", "version": "1.0.0" }
 ```
 
 ---
 
 ## 🔐 Authentication
 
-CogniSafe uses **JWT Bearer token** authentication.
-
-### Flow
-
-```
-1. POST /api/auth/register  →  returns access_token
-2. POST /api/auth/login     →  returns access_token
-3. All protected routes require:
-   Authorization: Bearer <access_token>
-```
-
-### Token Details
+**JWT Bearer token** — all protected routes require `Authorization: Bearer <token>`.
 
 | Setting | Value |
 |---|---|
 | Algorithm | `HS256` |
-| Expiry | `10080 minutes` (7 days) |
+| Expiry | 10080 min (7 days) |
 | Payload | `{ "sub": "<user_id>", "exp": <timestamp> }` |
 
-### Dependency Injection
-
-All protected routes use the `get_current_user` dependency:
-
 ```python
-def get_current_user(
-    token: str       = Depends(oauth2_scheme),
-    db:    DBSession = Depends(get_db)
-) -> User:
+# Dependency used on all protected routes
+def get_current_user(token = Depends(oauth2_scheme), db = Depends(get_db)) -> User:
     payload = decode_token(token)
     if not payload:
         raise HTTPException(401, "Invalid or expired token")
@@ -514,57 +285,35 @@ def get_current_user(
 
 ## 🚀 Getting Started
 
-### 1. Install dependencies
-
 ```bash
-cd cognisafe-backend
-pip install -r requirements.txt
-```
+# 1. Install
+cd cognisafe-backend && pip install -r requirements.txt
 
-### 2. Set up environment variables
+# 2. Environment
+cp .env.example .env   # edit with your values
 
-```bash
-cp .env.example .env
-# Edit .env with your values
-```
-
-### 3. Run locally (SQLite — zero config)
-
-```bash
+# 3. Run (SQLite — zero config locally)
 uvicorn main:app --reload --port 8000
-```
+# Tables auto-created on startup + demo user seeded
 
-The app auto-creates all tables on startup and creates the demo user `demo@cognisafe.app`.
-
-### 4. Seed demo data
-
-```bash
+# 4. Seed 6 months of demo data
 python seed.py
-```
 
-This creates 6 months of realistic sessions for the demo account.
-
-### 5. View auto-generated API docs
-
-```
-http://localhost:8000/docs       # Swagger UI
-http://localhost:8000/redoc      # ReDoc
+# 5. Docs
+open http://localhost:8000/docs    # Swagger UI
+open http://localhost:8000/redoc   # ReDoc
 ```
 
 ---
 
 ## 🌿 Environment Variables
 
-Create a `.env` file in `cognisafe-backend/`:
-
 ```env
-# Database
+# Database — leave blank for SQLite fallback
 DATABASE_URL=postgresql://user:password@localhost:5432/cognisafe
-# Leave empty to use SQLite locally:
-# DATABASE_URL=sqlite:///./cognisafe.db
 
 # JWT
-SECRET_KEY=your-super-secret-jwt-key-change-this
+SECRET_KEY=your-super-secret-key-change-this
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
@@ -572,81 +321,64 @@ ACCESS_TOKEN_EXPIRE_MINUTES=10080
 ML_SERVICE_URL=https://alamfarzann-cognisafe-ml.hf.space
 ```
 
-> ⚠️ **Never commit `.env` to git.** It's already in `.gitignore`.
+> ⚠️ Never commit `.env` — it's in `.gitignore`.
 
 ---
 
 ## 🌱 Demo Data Seeding
 
-Run `seed.py` once to populate the database with a realistic demo account:
-
-```bash
-python seed.py
-```
-
-**What it creates:**
+`python seed.py` creates a realistic 6-month demo account:
 
 | Field | Value |
 |---|---|
 | Name | Arjun Sharma |
 | Email | `demo@cognisafe.app` |
 | Password | `demo1234` |
-| DOB | 1968-05-14 |
-| Sessions | ~130 sessions over 6 months |
+| Sessions | ~130 over 6 months |
 
-**Session pattern:**
-- **Months 1-3:** Stable Green — healthy baseline
-- **Month 4:** Gradual Yellow drift
-- **Month 5-6:** Mild decline — some Orange sessions
+**Session arc** — designed to show cognitive drift on demo day:
 
-This gives the dashboard a realistic-looking trend that clearly shows cognitive drift over time — perfect for demo day.
+```
+Months 1–3  →  Stable Green  (healthy baseline)
+Month 4     →  Yellow drift  (gradual decline)
+Months 5–6  →  Mild decline  (some Orange sessions)
+```
 
 ---
 
 ## 🤖 ML Pipeline Integration
 
-The frontend calls the ML pipeline **directly** (bypassing this backend) to avoid timeout issues on Render's free tier. The flow is:
+The frontend calls HuggingFace **directly** to avoid Render's 30s timeout. The backend only receives the final results:
 
 ```
 Frontend
-   │
-   ├─── POST https://alamfarzann-cognisafe-ml.hf.space/analyze
-   │         (audio file + user_id)
-   │         ↓
-   │    ML returns 14 biomarkers + risk tier
-   │
-   └─── POST http://localhost:8000/api/sessions
-             (saves ML results to PostgreSQL)
+  ├── POST https://alamfarzann-cognisafe-ml.hf.space/analyze
+  │         (audio + user_id → 14 biomarkers + risk tier)
+  │
+  └── POST http://localhost:8000/api/sessions
+            (saves ML results to PostgreSQL)
 ```
 
-The backend's `/api/ml/analyze` proxy route exists as a fallback but is not used in production to keep latency low.
+`/api/ml/analyze` exists as a fallback but is not used in production.
 
 ---
 
 ## 📦 Requirements
 
 ```
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
-python-jose[cryptography]
-passlib[bcrypt]
-python-dotenv
-python-multipart
-httpx
-pydantic
+fastapi · uvicorn · sqlalchemy · psycopg2-binary
+python-jose[cryptography] · passlib[bcrypt]
+python-dotenv · python-multipart · httpx · pydantic
 ```
 
 ---
 
 <div align="center">
 
-**CogniSafe Backend** — Built with FastAPI 🚀
+Built with FastAPI ⚡ · Part of the CogniSafe platform
 
-*Part of the CogniSafe cognitive health monitoring platform.*
-
-[![ML Pipeline](https://img.shields.io/badge/ML%20Pipeline-HuggingFace-FF9D00?style=for-the-badge)](https://alamfarzann-cognisafe-ml.hf.space)
-[![Frontend](https://img.shields.io/badge/Frontend-Vercel-000000?style=for-the-badge)](https://cogni-safe.vercel.app)
+[![ML Pipeline](https://img.shields.io/badge/ML_Pipeline-HuggingFace-FF9D00?style=flat-square)](https://alamfarzann-cognisafe-ml.hf.space)
+[![Frontend](https://img.shields.io/badge/Frontend-Vercel-000?style=flat-square&logo=vercel)](https://cogni-safe.vercel.app)
+[![Root README](https://img.shields.io/badge/Root-README-0A1628?style=flat-square)](../README.md)
 
 </div>
