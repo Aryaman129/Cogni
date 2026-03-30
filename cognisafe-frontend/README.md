@@ -254,8 +254,7 @@ getTrajectory(token, months)      // → [ TrajectoryPoint ]
 
 ## 🔐 Authentication Flow
 
-![AUTHENTICATION FLOW](https://raw.githubusercontent.com/WTC-Group-3/wtc-round-2-group-3-faiv/main/cognisafe-frontend/assets/frontend_1.png)## 🚀 Getting Started
-
+![AUTHENTICATION FLOW](./cognisafe-frontend/assets/frontend_1.png)
 ```bash
 # 1. Install
 cd cognisafe-frontend && npm install
