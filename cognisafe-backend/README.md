@@ -17,7 +17,7 @@
 
 ## 📖 Contents
 
-[Overview](#-overview) · [Structure](#-project-structure) · [Tech Stack](#-tech-stack) · [Database Schema](#️-database-schema) · [API Reference](#-api-reference) · [Authentication](#-authentication) · [Getting Started](#-getting-started) · [Environment Variables](#-environment-variables) · [Demo Seeding](#-demo-data-seeding) · [ML Integration](#-ml-pipeline-integration)
+[Overview](#-overview) · [Structure](#-project-structure) · [Tech Stack](#-tech-stack) · [Database Schema](#️-database-schema) · [API Reference](#-api-reference) · [Authentication](#-authentication) · [Getting Started](#-getting-started) · [Demo Seeding](#-demo-data-seeding) · [ML Integration](#-ml-pipeline-integration)
 
 ---
 
