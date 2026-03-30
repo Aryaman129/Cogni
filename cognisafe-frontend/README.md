@@ -13,6 +13,9 @@
 
 <br/>
 
+| 🔐 `/auth` | 📊 `/dashboard` | 🎙️ `/session` | 🧬 `/brain` | 📄 `/ar-report` |
+|:---:|:---:|:---:|:---:|:---:|
+| Login | Biomarkers | Record Voice | Brain Map | PDF Export |
 > A **React 18 + Vite** SPA — zero third-party UI libraries, Canvas-heavy, built demo-first.
 > Every screen was designed for stage impact: judges pick it up, tap it, and remember it.
 
