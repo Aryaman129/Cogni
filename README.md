@@ -12,10 +12,7 @@
 
 [![Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-cogni--safe.vercel.app-E8A020?style=for-the-badge)](https://cogni-safe.vercel.app)
 [![ML API](https://img.shields.io/badge/🤗%20ML%20API-HuggingFace%20Spaces-FF9D00?style=for-the-badge)](https://alamfarzann-cognisafe-ml.hf.space/health)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)]()
-[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-0A1628?style=for-the-badge)](LICENSE)
-[![Hackathon](https://img.shields.io/badge/hackathon-winner-yellow?style=for-the-badge)](https://example.com/hackathon)
 
 <br/>
 
