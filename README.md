@@ -151,50 +151,7 @@ Real-time risk assessment with color-coded tiers:
 The CogniSafe platform is built as a **distributed system** with three main components: Frontend (React), Backend (FastAPI), and AI/ML Pipeline (Python + ML frameworks).
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        USER BROWSER                             │
-│                   (Web App - Vercel)                            │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │         React 18 (Vite) + TailwindCSS + Three.js         │   │
-│  │                                                          │   │
-│  │  ├─ Auth Pages (Login/Register)                          │   │
-│  │  ├─ Dashboard (Biomarker Cards + Trends)                 │   │
-│  │  ├─ Session Recording (Voice Orb Animation)              │   │
-│  │  ├─ 3D Brain (Semantic Drift Visualization)              │   │
-│  │  └─ Caregiver View (Family Dashboard)                    │   │
-│  │                                                          │   │
-│  │  Records Audio (WebM) ──────────────────────┐            │   │
-│  └─────────────────────────────────────────────┼────────────┘   │
-│                                                │                │
-└────────────────────────────────────────────────┼────────────────┘
-                                                 │
-              REST API Calls          Direct ML Call (for demos)
-              (JSON / JWT)
-                    │                            │
-                    ▼                            ▼
-  ┌──────────────────────────┐    ┌─────────────────────────────┐
-  │    FastAPI Backend        │    │      AI/ML Pipeline          │
-  │    Python (Render)        │    │  FastAPI + Whisper           │
-  │                           │    │  (HuggingFace Spaces)        │
-  │  ├─ JWT Auth              │    │                              │
-  │  ├─ Session Mgmt          │    │  ├─ Whisper (Transcription)  │
-  │  ├─ User Storage          │    │  ├─ openSMILE (Acoustics)    │
-  │  ├─ Trends API            │    │  ├─ spaCy (NLP)              │
-  │  ├─ Reports Gen           │    │  ├─ Sent-Transformers        │
-  │  └─ Caregiver Mgmt        │    │  ├─ Anomaly Detection        │
-  └──────────┬────────────────┘    │  └─ Risk Scoring             │
-             │                     └─────────────────────────────┘
-             ▼
-  ┌──────────────────────┐
-  │      PostgreSQL       │
-  │                       │
-  │  ├─ Users             │
-  │  ├─ Sessions          │
-  │  ├─ Biomarkers        │
-  │  ├─ Trends            │
-  │  └─ Caregiver Links   │
-  └──────────────────────┘
+![System Architecture](./assets/architecture.png)
 ```
 
 ### Key Design Principles
