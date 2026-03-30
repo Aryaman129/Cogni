@@ -254,25 +254,7 @@ getTrajectory(token, months)      // → [ TrajectoryPoint ]
 
 ## 🔐 Authentication Flow
 
-```
-Open app → /auth → Login/Register
-                       │
-                  POST /api/auth/login
-                       │
-              JWT stored in AuthContext
-                       │
-          ┌────────────┴────────────┐
-      Token present             Token missing
-          │                         │
-     Render page              Redirect → /auth
-```
-
-`ProtectedRoute` wraps every authenticated page:
-```jsx
-<ProtectedRoute><Dashboard /></ProtectedRoute>
-```
-
----
+![AUTHENTICATION FLOW](./assets/frontend_1.png "Optional title")
 
 ## 🚀 Getting Started
 
