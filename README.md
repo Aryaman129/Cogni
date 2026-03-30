@@ -36,13 +36,12 @@
 8. [Frontend](#️-frontend)
 9. [Backend](#️-backend)
 10. [Developer Guide](#-developer-guide)
-11. [Environment Variables](#-environment-variables)
-12. [API Reference](#-api-reference)
-13. [Why Voice?](#-why-voice)
-14. [Competitive Landscape](#-competitive-landscape)
-15. [Roadmap](#️-roadmap)
-16. [Team](#-team)
-17. [License](#-license)
+11. [API Reference](#-api-reference)
+12. [Why Voice?](#-why-voice)
+13. [Competitive Landscape](#-competitive-landscape)
+14. [Roadmap](#️-roadmap)
+15. [Team](#-team)
+16. [License](#-license)
 
 ---
 
