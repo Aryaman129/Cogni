@@ -254,7 +254,7 @@ getTrajectory(token, months)      // → [ TrajectoryPoint ]
 
 ## 🔐 Authentication Flow
 
-![AUTHENTICATION FLOW](./cognisafe-frontend/assets/frontend_1.png)
+![AUTHENTICATION FLOW](../assets/frontend_1.png)
 ```bash
 # 1. Install
 cd cognisafe-frontend && npm install
