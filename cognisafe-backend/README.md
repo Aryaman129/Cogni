@@ -299,24 +299,6 @@ open http://localhost:8000/redoc   # ReDoc
 
 ---
 
-## 🌿 Environment Variables
-
-```env
-# Database — leave blank for SQLite fallback
-DATABASE_URL=postgresql://user:password@localhost:5432/cognisafe
-
-# JWT
-SECRET_KEY=your-super-secret-key-change-this
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=10080
-
-# ML Service
-ML_SERVICE_URL=https://alamfarzann-cognisafe-ml.hf.space
-```
-
-> ⚠️ Never commit `.env` — it's in `.gitignore`.
-
----
 
 ## 🌱 Demo Data Seeding
 
