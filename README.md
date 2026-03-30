@@ -306,7 +306,6 @@ The AI pipeline is the **heart of CogniSafe**. It accepts a raw audio file and r
 ### Pipeline Architecture
 
 ```
-<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/ee4fd61f-d2c6-4bbb-8c44-d28f39e311ac" />
 
 ```
 
