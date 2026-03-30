@@ -517,10 +517,10 @@ Research shows that **speech and language changes precede clinical dementia diag
 
 | Member | Role | GitHub | 
 |---|---|---|
-| Ishika Rawat | 🎨 Frontend Engineer | [@workishika7-source](https://github.com/ishikarawatt) |
-| Farjan Alam | 🤖 AI/ML | [@alamfarzan](https://github.com/alamfarzan) |
-| Vansh Singh | ⚙️ Backend Engineer | [@vanshsingh](https://github.com/vanshsingh) |
-| Akansha Parley | 📋 Product & Demo | [@akanshaparley](https://github.com/akanshaparley) | 
+| Ishika Rawat | 🎨 Frontend Engineer | [@ishikarawatt](https://github.com/ishikarawat) |
+| Farjan Alam | 🤖 AI/ML | [@SyntaxSaviour](https://github.com/alamfarzan) |
+| Vansh Singh | ⚙️ Backend Engineer | [@vanshsingh2411](https://github.com/vanshsingh) |
+| Akansha Parley | 📋 Product & Demo | [@akansaa](https://github.com/akanshaparley) | 
 
 ---
 
