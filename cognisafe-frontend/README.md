@@ -176,7 +176,6 @@ checking → idle → recording → processing → result (donegood / donewarn /
 | `donebad` | Red card — "Changes detected, try again tomorrow" |
 
 **Key technical features:**
-
 - **5 randomized clinical prompts** — picture description tasks (mountain lake, city, forest) + memory recall + navigation tasks, matching standard clinical assessment protocols
 - **WebRTC audio capture** — `navigator.mediaDevices.getUserMedia({ audio: true })`
 - **MediaRecorder** — records in `audio/webm;codecs=opus` (best quality) with 250ms chunks
@@ -203,12 +202,16 @@ The visually striking screen that makes judges take out their phones.
 #### Interactive Brain Canvas
 - **Animated brain outline** drawn on Canvas — glowing ellipse with subtle pulse
 - **6 brain regions** mapped to biomarkers and plotted as interactive nodes:
-  - Prefrontal Cortex → `semantic_coherence`, `idea_density`, `syntactic_complexity`
-  - Temporal Lobe → `lexical_diversity`
-  - Parietal Lobe → `semantic_coherence`
-  - Broca's Area → `speech_rate`, `pause_frequency`
-  - Wernicke's Area → `lexical_diversity`
-  - Cerebellum → `pause_duration`, `pitch_mean`, `articulation_rate`
+
+| Region | Biomarkers |
+|---|---|
+| Prefrontal Cortex | `semantic_coherence`, `idea_density`, `syntactic_complexity` |
+| Temporal Lobe | `lexical_diversity` |
+| Parietal Lobe | `semantic_coherence` |
+| Broca's Area | `speech_rate`, `pause_frequency` |
+| Wernicke's Area | `lexical_diversity` |
+| Cerebellum | `pause_duration`, `pitch_mean`, `articulation_rate` |
+
 - Nodes colored by status: green (ok), amber (warn), red (bad)
 - **Hover** to see region description tooltip
 - **Click** to select and highlight a region
@@ -229,7 +232,6 @@ The visually striking screen that makes judges take out their phones.
 The caregiver-friendly report view.
 
 **Features:**
-
 - **Weekly narrative** — plain-language AI summary from `GET /api/reports/weekly`
 - **3 insight pills** — color-coded (success/warn/indigo)
 - **Risk tier banner** — large, prominent, plain-language status
@@ -296,17 +298,17 @@ Each page has its own dark/light CSS variable set. Toggled via `localStorage.set
 ### `authService.js`
 
 ```javascript
-loginUser(email, password)     → { access_token, user_id, name, email }
+loginUser(email, password)              → { access_token, user_id, name, email }
 registerUser(name, email, password, dob) → { access_token, user_id, name, email }
 ```
 
 ### `sessionService.js`
 
 ```javascript
-checkToday(token)              → { recorded, risk_tier, session_id }
-analyzeAudio(audioBlob, userId)→ normalizedAIResult
-saveSession(token, aiResult)   → saved session object
-normalizeAIResult(raw)         → { risk_tier, biomarkers, anomaly_flags, ... }
+checkToday(token)               → { recorded, risk_tier, session_id }
+analyzeAudio(audioBlob, userId) → normalizedAIResult
+saveSession(token, aiResult)    → saved session object
+normalizeAIResult(raw)          → { risk_tier, biomarkers, anomaly_flags, ... }
 ```
 
 **`analyzeAudio` flow:**
@@ -318,11 +320,11 @@ normalizeAIResult(raw)         → { risk_tier, biomarkers, anomaly_flags, ... }
 ### `dashboardService.js`
 
 ```javascript
-getProfile(token)              → user profile
-getSessionHistory(token, months) → [ HistoryItem, ... ]
-getLatestSession(token)        → SessionResponse
-getWeeklyReport(token)         → WeeklyReport
-getTrajectory(token, months)   → [ TrajectoryPoint, ... ]
+getProfile(token)                  → user profile
+getSessionHistory(token, months)   → [ HistoryItem, ... ]
+getLatestSession(token)            → SessionResponse
+getWeeklyReport(token)             → WeeklyReport
+getTrajectory(token, months)       → [ TrajectoryPoint, ... ]
 ```
 
 ---
@@ -440,7 +442,7 @@ The `vercel.json` file ensures all routes return `index.html` so React Router ha
 }
 ```
 
-Without this, hard refreshing on `/dashboard` would return a 404 from Vercel.
+> Without this, hard refreshing on `/dashboard` would return a 404 from Vercel.
 
 ---
 
@@ -461,7 +463,7 @@ ML returns 14 biomarkers + risk tier + anomaly flags
           │
           ▼
 normalizeAIResult() maps ML field names → internal field names
-  (e.g. HNR → hnr, pause_duration_mean → pause_duration)
+  e.g. HNR → hnr, pause_duration_mean → pause_duration
           │
           ▼
 POST http://localhost:8000/api/sessions
@@ -473,12 +475,14 @@ Result card shown to user (Green / Yellow / Red)
 
 ### HuggingFace Cold Start Handling
 
-HF Spaces on the free tier sleep after inactivity. Two strategies used:
+HF Spaces on the free tier sleep after inactivity. Two strategies are used:
 
-1. **App-level warmup** — `App.jsx` pings `/health` on mount
-2. **Session-level warmup** — `Session.jsx` pings `/health` when the recording page opens
+| Strategy | Where | Timing |
+|---|---|---|
+| App-level warmup | `App.jsx` pings `/health` on mount | On every app load |
+| Session-level warmup | `Session.jsx` pings `/health` when page opens | Gives 1–3 min before user records |
 
-This gives the Space 1-3 minutes to wake up while the user reads the prompt and prepares to record.
+This ensures the Space is awake by the time the user finishes reading the prompt and starts recording.
 
 ---
 
