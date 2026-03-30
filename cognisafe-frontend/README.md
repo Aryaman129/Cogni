@@ -114,52 +114,91 @@ Live **animated neural network** on Canvas — glowing nodes float and connect i
 
 ### 📊 `/dashboard` — Biomarker Dashboard
 
-**14 biomarker cards** in a responsive grid. Each card has a live sparkline (Canvas), trend arrow (↑ ↓ →), and status dot. Below the grid: a **session calendar** with colored dots per day, a **weekly AI narrative**, and a **risk tier badge**.
+The primary screen for daily cognitive health monitoring. Designed to give a complete picture at a glance.
 
-> Dark/Light toggle persisted as `cog_dark` in localStorage.
+**Features:**
 
+#### 14 Biomarker Cards
+- One card per biomarker in a responsive grid
+- Each card shows: current value, trend percentage, direction arrow (↑ ↓ →), status dot (green/amber/red)
+- **Sparkline chart** drawn on Canvas — 14-point trend line per biomarker
+- Status colors: `good` (green), `warn` (amber), `crit` (red)
+
+#### Session Calendar
+- Full month calendar with navigation (← →)
+- Each day with a session shows a colored dot: green (good), amber (watch), red (alert)
+- Click any day to see that session's biomarker snapshot in a bottom panel
+- Pulls real data from `GET /api/sessions/history`
+
+#### Weekly Report Card
+- AI-generated narrative from the backend report endpoint
+- 3 insight pills with color-coded indicators
+- Session count and average biomarker values for the week
+
+#### Risk Tier Badge
+- Prominent `Green / Yellow / Orange / Red` badge in the header
+- Derived from the most recent session's risk tier
+
+#### Dark / Light Mode
+- Toggle button in the top right
+- Persisted in `localStorage` as `cog_dark`
 ---
 
 ### 🎙️ `/session` — Voice Recording
+The most important screen. Judges interact with this live on stage.
 
-The live demo screen. Moves through these states:
+**States the page moves through:**
 
 ```
-checking → idle → recording → processing → donegood / donewarn / donebad
+checking → idle → recording → processing → result (donegood / donewarn / donebad)
 ```
 
-| State | UI |
+| State | What the user sees |
 |---|---|
-| `idle` | Clinical prompt + "Start Recording" |
-| `recording` | Countdown ring · live transcript · auto-stops at 0:00 |
-| `processing` | Pulsing orb animation (~90s) |
-| `done*` | Colored result card (Green / Amber / Red) |
+| `checking` | Spinner while checking if already recorded today |
+| `idle` | Prompt + image + "Start Recording" button |
+| `recording` | Live countdown timer (3:00 → 0:00) + progress ring + live transcript |
+| `processing` | Pulsing animation while ML pipeline runs |
+| `donegood` | Green card — "Excellent session!" |
+| `donewarn` | Amber card — "Pause frequency elevated" |
+| `donebad` | Red card — "Changes detected, try again tomorrow" |
 
-**Key tech:** WebRTC mic capture → MediaRecorder (Opus) → direct HF Space POST → `normalizeAIResult()` → backend save.
+**Key technical features:**
+- **5 randomized clinical prompts** — picture description tasks (mountain lake, city, forest) + memory recall + navigation tasks, matching standard clinical assessment protocols
+- **WebRTC audio capture** — `navigator.mediaDevices.getUserMedia({ audio: true })`
+- **MediaRecorder** — records in `audio/webm;codecs=opus` (best quality) with 250ms chunks
+- **Live transcript** — uses `window.SpeechRecognition` to show words appearing in real time during recording
+- **Countdown ring** — SVG circle with `stroke-dashoffset` animation, color shifts gold → red in the last 45 seconds
+- **HF Space warmup** — pings `GET /health` on page mount to wake the HuggingFace Space before the user finishes recording
+- **AbortController** — 480 second timeout on the ML fetch with clean cancellation
+- **Auto-stop** — recording stops automatically when timer hits 0
+
+**After recording:**
+1. Audio blob sent directly to `POST https://alamfarzann-cognisafe-ml.hf.space/analyze`
+2. ML result normalized via `normalizeAIResult()`
+3. Result saved to backend via `POST /api/sessions`
+4. Risk tier result card shown to user
 
 ---
 
-### 🧬 `/brain` — Brain Region Map
-
-Interactive Canvas brain with **6 clickable region nodes**, each mapped to biomarkers:
-
-| Region | Biomarkers |
-|---|---|
-| Prefrontal Cortex | `semantic_coherence`, `idea_density`, `syntactic_complexity` |
-| Broca's Area | `speech_rate`, `pause_frequency` |
-| Wernicke's Area | `lexical_diversity` |
-| Temporal Lobe | `lexical_diversity` |
-| Parietal Lobe | `semantic_coherence` |
-| Cerebellum | `pause_duration`, `pitch_mean`, `articulation_rate` |
-
-Nodes colored green/amber/red by status. Hover = tooltip. Click = highlight + detail panel. Includes a **6-month cognitive trajectory line chart**.
-
----
 
 ### 📄 `/ar-report` — Weekly Report & PDF
 
-AI-generated weekly narrative, risk tier banner, biomarker summary table, session streak, and decorative QR code. One-click **PDF export** via jsPDF — full A4 with branding, badge, table, and footer timestamp.
+The caregiver-friendly report view.
 
+**Features:**
+- **Weekly narrative** — plain-language AI summary from `GET /api/reports/weekly`
+- **3 insight pills** — color-coded (success/warn/indigo)
+- **Risk tier banner** — large, prominent, plain-language status
+- **Biomarker summary table** — key metrics with status indicators
+- **Session streak counter**
+- **QR code** — drawn on Canvas, decorative (links to platform)
+- **PDF Export** — uses `jsPDF` to generate a professional A4 report entirely in-browser:
+  - Dark green header with CogniSafe branding
+  - Risk tier badge
+  - Biomarker summary table
+  - Weekly narrative
+  - Page footer with timestamp
 ---
 
 ## 🎨 Design System
