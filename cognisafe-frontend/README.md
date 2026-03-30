@@ -13,8 +13,8 @@
 
 <br/>
 
-| 🔐 `/auth` | 📊 `/dashboard` | 🎙️ `/session` | 🧬 `/brain` | 📄 `/ar-report` |
-|:---:|:---:|:---:|:---:|:---:|
+| 🔐 `/auth` | 📊 `/dashboard` | 🎙️ `/session`  | 📄 `/ar-report` |
+|:---:|:---:|:---:|:---:|
 | Login | Biomarkers | Record Voice | Brain Map | PDF Export |
 > A **React 18 + Vite** SPA — zero third-party UI libraries, Canvas-heavy, built demo-first.
 > Every screen was designed for stage impact: judges pick it up, tap it, and remember it.
@@ -60,7 +60,7 @@ cognisafe-frontend/
     │   ├── Auth.jsx             # Login / Register
     │   ├── Dashboard.jsx        # 14 biomarker cards + calendar
     │   ├── Session.jsx          # Voice recording + ML flow
-    │   ├── Brain.jsx            # Brain region map + trajectory
+    │   ├── Home.jsx            # Brain region map + trajectory
     │   └── ARReport.jsx         # Weekly PDF report
     ├── services/
     │   ├── authService.js
@@ -71,7 +71,7 @@ cognisafe-frontend/
         ├── auth.css
         ├── session.css
         ├── dashboard.css
-        ├── brain.css
+        ├── home.css
         └── arreport.css
 ```
 
@@ -312,12 +312,8 @@ VITE_API_URL=https://your-backend.onrender.com
 | `/auth` | `Auth.jsx` | ❌ | Login / Register |
 | `/dashboard` | `Dashboard.jsx` | ✅ | Biomarker overview |
 | `/session` | `Session.jsx` | ✅ | Voice recording |
-| `/brain` | `Brain.jsx` | ✅ | Brain map + trajectory |
 | `/ar-report` | `ARReport.jsx` | ✅ | Report + PDF export |
 
-`vercel.json` rewrites all routes → `index.html` (prevents 404 on hard refresh):
-```json
-{ "rewrites": [{ "source": "/(.*)", "destination": "/" }] }
 ```
 
 ---
