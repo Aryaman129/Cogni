@@ -174,9 +174,8 @@ The AI pipeline is the **heart of CogniSafe**. It accepts a raw audio file and r
 
 ### Pipeline Architecture
 
-```
+![System Architecture](./assets/ai_ml.png)
 
-```
 
 ### Tech Stack — ML
 
@@ -490,20 +489,7 @@ Research shows that **speech and language changes precede clinical dementia diag
 ---
 
 ## 🗺️ Roadmap
-
-```
-2026 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━►
-
-  Q1–Q2           Q3              Q4             2027          2028–2030
-    │              │               │               │               │
-    ▼              ▼               ▼               ▼               ▼
-[MVP Launch]  [iOS/Android]  [Healthcare     [FDA            [Pharma
-B2C beta      React Native   Partnerships   Breakthrough    Clinical
-launch        mobile app     Insurance      Device          Trial API]
-              Offline mode   AI Reports     Designation]
-                             HIPAA          Clinical
-                             compliance     validation
-```
+![System Architecture](./assets/road_map.png)
 
 ### Phase Details
 
