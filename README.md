@@ -388,25 +388,6 @@ npm test
 
 ---
 
-## 🔐 Environment Variables
-
-#### Backend (`.env`)
-
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/cognisafe
-SECRET_KEY=your-super-secret-jwt-key-min-32-chars
-ML_SERVICE_URL=http://localhost:7860
-JWT_ALGORITHM=HS256
-CORS_ORIGINS=http://localhost:5173
-```
-
-#### Frontend (`.env.local`)
-
-```env
-VITE_API_URL=http://localhost:8000
-VITE_ML_API_URL=http://localhost:7860
-```
-
 ### 📚 Component Documentation
 
 | Component | Docs |
