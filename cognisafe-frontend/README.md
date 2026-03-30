@@ -18,12 +18,7 @@
 
 <br/>
 
-```
-/auth  ──►  /dashboard  ──►  /session  ──►  /brain  ──►  /ar-report
- 🔐            📊               🎙️             🧬              📄
-Login      Biomarkers       Record Voice    Brain Map      PDF Export
-```
-
+![Pipeline Architecture](./assets/frontend_1.png)
 </div>
 
 ---
