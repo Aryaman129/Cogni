@@ -109,58 +109,7 @@ cognisafe-deploy/
 
 ## 🏗️ Pipeline Architecture
 
-```
-Browser Audio (WebM/Opus — MediaRecorder)
-             │
-             ▼
-   ┌─────────────────────┐
-   │   POST /analyze     │  api/main.py
-   └─────────────────────┘
-             │
-             ▼
-   ┌─────────────────────┐
-   │  Stage 1 · ffmpeg   │  WebM → 16kHz mono WAV  (60s timeout)
-   └─────────────────────┘
-             │
-             ▼
-   ┌─────────────────────┐
-   │  Stage 2 · Whisper  │  Speech → text + word timestamps + pause events
-   └─────────────────────┘
-             │
-      ┌──────┴──────┐
-      ▼             ▼
- ┌─────────┐   ┌─────────┐
- │Stage 3  │   │Stage 4  │
- │Acoustic │   │  NLP    │
- │         │   │         │
- │ Pitch   │   │Coherence│
- │ Jitter  │   │Diversity│
- │ Shimmer │   │Density  │
- │ HNR     │   │Syntax   │
- │ Pauses  │   │         │
- └─────────┘   └─────────┘
-      │             │
-      └──────┬──────┘
-             ▼
-   ┌─────────────────────┐
-   │   risk.py · merge   │  Acoustic + NLP → 14 biomarker dict
-   └─────────────────────┘
-             │
-             ▼
-   ┌─────────────────────┐
-   │  Stage 5 · Anomaly  │  2-sigma vs personal baseline
-   │                     │  Risk tier · SQLite storage
-   └─────────────────────┘
-             │
-             ▼
-    JSON Response
-    ├── 14 biomarkers
-    ├── anomaly_flags
-    ├── risk_tier
-    └── confidence_intervals (95%)
-```
-
----
+![AUTHENTICATION FLOW](../assets/ml1.png)
 
 ## 🔄 Stage 1 — Audio Conversion (ffmpeg)
 
