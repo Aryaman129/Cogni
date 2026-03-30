@@ -17,8 +17,7 @@
 > Every screen was designed for stage impact: judges pick it up, tap it, and remember it.
 
 <br/>
-
-![Pipeline Architecture](./assets/frontend_1.png)
+![Frontend Flow](../assets/flowchart.png)
 </div>
 
 ---
