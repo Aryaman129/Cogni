@@ -297,22 +297,7 @@ VITE_API_URL=https://your-backend.onrender.com
 ---
 
 ## 🤖 ML Integration
-
-```
-MediaRecorder (WebM/Opus)
-        │
-        ▼  POST /analyze  (FormData: audio + user_id)
-HuggingFace Space                    timeout: 480s
-        │
-        ▼
-14 biomarkers + risk tier + anomaly flags
-        │
-        ▼  normalizeAIResult()
-POST /api/sessions  →  PostgreSQL
-        │
-        ▼
-Result card  (🟢 Green / 🟡 Yellow / 🔴 Red)
-```
+![AUTHENTICATION FLOW](../assets/frontend_2.png)
 
 **Cold start strategy** — HF free tier sleeps after inactivity:
 
