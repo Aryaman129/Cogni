@@ -6,7 +6,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
 ml_router = APIRouter(prefix="/api/ml", tags=["ml"])
 
-HF_BASE = "https://alamfarzann-cognisafe-ml.hf.space"  # Replace with your actual HF Space URL in production
+HF_BASE = "https://alamfarzann-cognisafe-ml.hf.space/health"  # Replace with your actual HF Space URL in production
 
 # ── In-memory job store ────────────────────────────────────────────────────────
 # Shape: { job_id: { status, stage, result, error, created_at } }
