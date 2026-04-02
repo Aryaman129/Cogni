@@ -1,7 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { checkToday, analyzeAudio, saveSession } from "../services/sessionService";
+import {
+  checkToday,
+  saveSession,
+  submitAudioJob,
+  pollJobUntilDone,
+  STAGE_LABELS,
+  STAGE_ORDER,
+} from "../services/sessionService";
 import "../styles/session.css";
 
 // ── PROMPTS ──
@@ -191,6 +198,8 @@ const Session = () => {
   const [aiWarning, setAiWarning] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [volumeLevel, setVolumeLevel] = useState(0);
+  // ── NEW: tracks which pipeline stage we're currently in ──
+  const [analysisStage, setAnalysisStage] = useState("uploading");
 
   // Refs
   const timerRef = useRef(null);
@@ -222,7 +231,6 @@ const Session = () => {
     let checkTimeout;
 
     const check = async () => {
-      // Set timeout to force exit checking state after 2 seconds
       timeoutId = setTimeout(() => {
         if (isMounted && state === "checking") {
           console.log("Force exiting checking state - timeout reached");
@@ -237,7 +245,6 @@ const Session = () => {
           return;
         }
 
-        // Check user-specific storage
         const lastSess = getUserStorage?.("last_session");
         const lastTier = getUserStorage?.("last_result_tier");
 
@@ -250,7 +257,6 @@ const Session = () => {
           }
         }
 
-        // Check with backend for real users (not demo)
         const isDemo = user?.email?.includes("demo");
         if (token && !isDemo) {
           try {
@@ -347,7 +353,6 @@ const Session = () => {
     setTranscript("");
     setVolumeLevel(0);
 
-    // Get microphone
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
@@ -363,14 +368,11 @@ const Session = () => {
       };
 
       mediaRecorder.start(250);
-
-      // Start volume monitoring
       startVolumeMonitoring();
     } catch (err) {
       console.warn("Mic access denied:", err.message);
     }
 
-    // Start speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
@@ -402,7 +404,6 @@ const Session = () => {
     setTimeLeft(TOTAL);
     setProgress(0);
 
-    // Countdown timer
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         const next = prev - 1;
@@ -416,12 +417,12 @@ const Session = () => {
     }, 1000);
   };
 
-  // Stop recording and analyze
+  // ── UPDATED: Stop recording — submit job and poll for result ──
   const stopRecording = useCallback(async () => {
     clearInterval(timerRef.current);
     stopVolumeMonitoring();
 
-    // Get audio blob
+    // Collect audio blob
     let audioBlob = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       await new Promise((resolve) => {
@@ -440,71 +441,62 @@ const Session = () => {
     }
 
     setState("analysing");
-    setProgress(55);
-
-    // Animate progress
-    let p = 55;
-    progressRef.current = setInterval(() => {
-      p += 0.4;
-      setProgress(Math.min(p, 98));
-    }, 100);
+    setAnalysisStage("uploading");
+    setProgress(5);
 
     try {
       let aiResult;
       const isDemo = user?.email?.includes("demo");
 
       if (isDemo) {
-        // Demo mode - return mock result
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const randomRisk = Math.random();
-        const riskTier = randomRisk > 0.8 ? "Yellow" : "Green";
+        // ── Demo mode: simulate stage-by-stage progress ──────────────────────
+        for (let i = 0; i < STAGE_ORDER.length; i++) {
+          setAnalysisStage(STAGE_ORDER[i]);
+          setProgress(Math.round(((i + 1) / STAGE_ORDER.length) * 100));
+          await new Promise(r => setTimeout(r, 600));
+        }
+        const riskTier = Math.random() > 0.8 ? "Yellow" : "Green";
         aiResult = {
           risk_tier: riskTier,
           biomarkers: {
             semantic_coherence: 0.75 + Math.random() * 0.2,
-            lexical_diversity: 0.65 + Math.random() * 0.15,
-            speech_rate: 110 + Math.random() * 25,
-            pause_frequency: 2.5 + Math.random() * 2,
-            hnr: 16 + Math.random() * 5,
-            jitter: 0.008 + Math.random() * 0.008,
+            lexical_diversity:  0.65 + Math.random() * 0.15,
+            speech_rate:        110  + Math.random() * 25,
+            pause_frequency:    2.5  + Math.random() * 2,
+            hnr:                16   + Math.random() * 5,
+            jitter:             0.008 + Math.random() * 0.008,
           },
-          anomaly_flags: []
+          anomaly_flags: [],
         };
-      } else if (audioBlob && audioBlob.size > 1000) {
-        try {
-          const controller = new AbortController();
-          abortRef.current = controller;
 
-          aiResult = await analyzeAudio(audioBlob, user?.id || 1, controller.signal);
-        } catch (aiErr) {
-          console.warn("DONE!", aiErr.message);
-          setAiWarning(false);
-          aiResult = {
-            risk_tier: "Green",
-            biomarkers: {
-              semantic_coherence: Number((0.80 + Math.random() * 0.1).toFixed(2)),
-              lexical_diversity: Number((0.70 + Math.random() * 0.1).toFixed(2)),
-              speech_rate: Math.floor(115 + Math.random() * 15),
-              pause_frequency: Number((2.0 + Math.random() * 1.5).toFixed(1)),
-              hnr: Number((18.0 + Math.random() * 2.0).toFixed(1)),
-              jitter: Number((0.009 + Math.random() * 0.004).toFixed(3)),
-            },
-            anomaly_flags: []
-          };
-        }
+      } else if (audioBlob && audioBlob.size > 1000) {
+        // ── Real mode: submit job → poll until done ──────────────────────────
+        setAnalysisStage("uploading");
+        setProgress(8);
+
+        const jobId = await submitAudioJob(audioBlob, user?.id || 1);
+
+        aiResult = await pollJobUntilDone(jobId, (stage) => {
+          setAnalysisStage(stage);
+          const idx = STAGE_ORDER.indexOf(stage);
+          setProgress(idx >= 0 ? 10 + Math.round((idx / (STAGE_ORDER.length - 1)) * 85) : 10);
+        });
+
       } else {
-        setAiWarning(false);
+        // ── No audio blob — fallback mock ────────────────────────────────────
+        setAnalysisStage("done");
+        setProgress(100);
         aiResult = {
           risk_tier: "Green",
           biomarkers: {
             semantic_coherence: Number((0.80 + Math.random() * 0.1).toFixed(2)),
-            lexical_diversity: Number((0.70 + Math.random() * 0.1).toFixed(2)),
-            speech_rate: Math.floor(115 + Math.random() * 15),
-            pause_frequency: Number((2.0 + Math.random() * 1.5).toFixed(1)),
-            hnr: Number((18.0 + Math.random() * 2.0).toFixed(1)),
-            jitter: Number((0.009 + Math.random() * 0.004).toFixed(3)),
+            lexical_diversity:  Number((0.70 + Math.random() * 0.1).toFixed(2)),
+            speech_rate:        Math.floor(115 + Math.random() * 15),
+            pause_frequency:    Number((2.0  + Math.random() * 1.5).toFixed(1)),
+            hnr:                Number((18.0 + Math.random() * 2.0).toFixed(1)),
+            jitter:             Number((0.009 + Math.random() * 0.004).toFixed(3)),
           },
-          anomaly_flags: []
+          anomaly_flags: [],
         };
       }
 
@@ -522,17 +514,15 @@ const Session = () => {
         setUserStorage("last_session", new Date().toISOString());
         setUserStorage("last_result_tier", aiResult.risk_tier);
       } else {
-        // Fallback to regular localStorage
         localStorage.setItem("cog_last_session", new Date().toISOString());
         localStorage.setItem("cog_last_result_tier", aiResult.risk_tier);
       }
 
-      clearInterval(progressRef.current);
       setProgress(100);
       setResult(aiResult);
       setState("done");
-
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 200);
+
     } catch (err) {
       clearInterval(progressRef.current);
       console.error("Session error:", err);
@@ -741,29 +731,50 @@ const Session = () => {
                 </div>
               </div>
 
-              {/* Status */}
+              {/* Status — shows live stage label during analysis */}
               <div className={`status-pill ${state === "recording" ? "recording" : state === "analysing" ? "analysing" : state === "done" ? "done" : "idle"}`}>
                 <span className="status-dot"></span>
                 <span className="status-text">
-                  {state === "idle" && "Ready to record"}
+                  {state === "idle"      && "Ready to record"}
                   {state === "recording" && `Recording... ${formatTime(timeLeft)}`}
-                  {state === "analysing" && "Analysing your voice..."}
-                  {state === "done" && "Analysis complete ✓"}
+                  {state === "analysing" && (STAGE_LABELS[analysisStage] || "Analysing your voice...")}
+                  {state === "done"      && "Analysis complete ✓"}
                 </span>
               </div>
 
-              {/* Progress Steps */}
+              {/* Progress Steps — expanded to show all pipeline stages */}
               <div className="progress-steps">
-                <div className={`step ${state === "idle" || state === "recording" ? "active" : state === "analysing" || state === "done" ? "completed" : ""}`}>
+                {/* Step 1: Record */}
+                <div className={`step ${
+                  state === "idle" || state === "recording" ? "active"
+                  : state === "analysing" || state === "done" ? "completed" : ""
+                }`}>
                   <span className="step-number">1</span>
                   <span className="step-label">Record</span>
                 </div>
-                <div className={`step ${state === "analysing" ? "active" : state === "done" ? "completed" : ""}`}>
-                  <span className="step-number">2</span>
-                  <span className="step-label">Analyse</span>
-                </div>
+
+                {/* Steps 2–5: Pipeline stages */}
+                {["transcribing", "acoustic", "nlp", "risk"].map((stage, i) => {
+                  const stageIdx = STAGE_ORDER.indexOf(analysisStage);
+                  const thisIdx  = STAGE_ORDER.indexOf(stage);
+                  const isActive   = state === "analysing" && analysisStage === stage;
+                  const isComplete = state === "done" || (state === "analysing" && stageIdx > thisIdx);
+                  return (
+                    <div key={stage} className={`step ${isActive ? "active" : isComplete ? "completed" : ""}`}>
+                      <span className="step-number">{i + 2}</span>
+                      <span className="step-label">
+                        {stage === "transcribing" ? "Transcribe"
+                          : stage === "acoustic"   ? "Acoustic"
+                          : stage === "nlp"        ? "NLP"
+                          : "Risk"}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {/* Step 6: Results */}
                 <div className={`step ${state === "done" ? "completed" : ""}`}>
-                  <span className="step-number">3</span>
+                  <span className="step-number">6</span>
                   <span className="step-label">Results</span>
                 </div>
               </div>
