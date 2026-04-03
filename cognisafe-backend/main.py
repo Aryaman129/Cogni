@@ -17,6 +17,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health():
+    return {"status": "ok"}
+
 @app.on_event("startup")
 def seed_demo_user():
     from database import SessionLocal
@@ -43,13 +47,8 @@ app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(users_router)
 app.include_router(reports_router)
-app.include_router(ml_router)  
-
+app.include_router(ml_router)
 
 @app.get("/")
 def root():
     return {"status": "CogniSafe API running", "version": "1.0.0"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
