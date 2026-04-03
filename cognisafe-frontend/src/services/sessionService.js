@@ -1,4 +1,5 @@
-const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API    = import.meta.env.VITE_API_URL    || "http://localhost:8000";
+const HF_URL = "https://alamfarzann-cognisafe-ml.hf.space";
 
 const authHeaders = (token) => ({
   "Content-Type": "application/json",
@@ -31,102 +32,60 @@ export const STAGE_LABELS = {
 
 export const STAGE_ORDER = ["uploading", "transcribing", "acoustic", "nlp", "risk", "done"];
 
-// ── Submit audio → get job_id immediately ─────────────────────────────────────
-export const submitAudioJob = async (audioBlob, userId) => {
+// ── Simulate stage progression while HF Space processes ──────────────────────
+// HF Space returns one blob at the end, so we advance stages on a timer
+// based on typical observed durations.
+const STAGE_TIMINGS = [
+  { stage: "transcribing", delay: 20000 },
+  { stage: "acoustic",     delay: 15000 },
+  { stage: "nlp",          delay: 30000 },
+  { stage: "risk",         delay: 5000  },
+];
+
+// ── Submit audio DIRECTLY to HF Space and poll stage labels on a timer ────────
+export const submitAudioJob = async (audioBlob, userId, onStageChange) => {
   const formData = new FormData();
   const audioFile = await blobToWav(audioBlob);
-  formData.append("audio", audioFile);
+  formData.append("audio",   audioFile);
   formData.append("user_id", String(userId));
 
-  const res = await fetch(`${API}/api/ml/analyze`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Submit failed: ${res.status}`);
-  }
-
-  const data = await res.json();
-  return data.job_id; // string UUID
-};
-
-// ── Poll job status until done or failed ──────────────────────────────────────
-// onStageChange(stage) is called every time the stage label changes.
-// Returns the final normalised AI result on success, throws on failure.
-export const pollJobUntilDone = async (
-  jobId,
-  onStageChange,
-  { intervalMs = 3000, maxWaitMs = 420000 } = {} // 7 min max
-) => {
-  const deadline = Date.now() + maxWaitMs;
-  let lastStage = null;
-
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, intervalMs));
-
-    const res = await fetch(`${API}/api/ml/status/${jobId}`);
-    if (!res.ok) {
-      // Transient network error — keep trying
-      console.warn("[pollJob] status fetch failed, retrying...");
-      continue;
+  // Start stage advancement timer in parallel
+  let stopped = false;
+  const advanceStages = async () => {
+    for (const { stage, delay } of STAGE_TIMINGS) {
+      await new Promise(r => setTimeout(r, delay));
+      if (stopped) return;
+      onStageChange?.(stage);
     }
-
-    const data = await res.json();
-
-    // Fire stage callback when stage changes
-    if (data.stage !== lastStage) {
-      lastStage = data.stage;
-      onStageChange?.(data.stage);
-    }
-
-    if (data.status === "done") {
-      return normalizeAIResult(data.result);
-    }
-
-    if (data.status === "failed") {
-      throw new Error(data.error || "Analysis failed on the server.");
-    }
-
-    // status === "queued" | "processing" → keep polling
-  }
-
-  throw new Error("Analysis timed out waiting for result.");
-};
-
-// ── Legacy single-call analyzeAudio (kept for demo/fallback path) ─────────────
-export const analyzeAudio = async (audioBlob, userId, externalSignal = null) => {
-  const formData = new FormData();
-  const audioFile = await blobToWav(audioBlob);
-  formData.append("audio", audioFile);
-  formData.append("user_id", String(userId));
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 360000);
-
-  if (externalSignal) {
-    externalSignal.addEventListener("abort", () => controller.abort());
-  }
+  };
+  advanceStages();
 
   try {
-    const res = await fetch(`${API}/api/ml/analyze`, {
+    // Direct call to HF Space — up to 8 minutes
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 480000); // 8 min
+
+    const res = await fetch(`${HF_URL}/analyze`, {
       method: "POST",
-      body: formData,
+      body:   formData,
       signal: controller.signal,
     });
+
     clearTimeout(timeout);
+    stopped = true;
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || err.message || `AI service error ${res.status}`);
+      throw new Error(err.detail || `HF Space error ${res.status}`);
     }
+
+    onStageChange?.("done");
     return normalizeAIResult(await res.json());
+
   } catch (err) {
-    clearTimeout(timeout);
-    if (err.name === "AbortError" && externalSignal?.aborted)
-      throw new Error("Analysis cancelled by user.");
+    stopped = true;
     if (err.name === "AbortError")
-      throw new Error("Analysis timed out after 6 minutes — please try again.");
+      throw new Error("Analysis timed out after 8 minutes — please try again.");
     throw err;
   }
 };
@@ -153,16 +112,16 @@ export const normalizeAIResult = (raw) => {
       emotional_entropy:    bm.emotional_entropy      ?? null,
       filled_pause_rate:    bm.filled_pause_rate     ?? null,
     },
-    anomaly_flags:        raw.anomaly_flags         || [],
-    session_id:           raw.session_id            || null,
-    timestamp:            raw.timestamp             || null,
+    anomaly_flags:        raw.anomaly_flags          || [],
+    session_id:           raw.session_id             || null,
+    timestamp:            raw.timestamp              || null,
     processing_time:      raw.processing_time_seconds ?? null,
-    user_id:              raw.user_id               || null,
-    confidence_intervals: raw.confidence_intervals  || null,
+    user_id:              raw.user_id                || null,
+    confidence_intervals: raw.confidence_intervals   || null,
   };
 };
 
-// ── Save AI result to backend ─────────────────────────────────────────────────
+// ── Save AI result to Render backend ─────────────────────────────────────────
 export const saveSession = async (token, aiResult) => {
   const bm = aiResult.biomarkers || {};
   const payload = {
@@ -186,9 +145,9 @@ export const saveSession = async (token, aiResult) => {
   };
 
   const res = await fetch(`${API}/api/sessions`, {
-    method: "POST",
+    method:  "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
+    body:    JSON.stringify(payload),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || "Failed to save session");

@@ -470,13 +470,11 @@ const Session = () => {
         };
 
       } else if (audioBlob && audioBlob.size > 1000) {
-        // ── Real mode: submit job → poll until done ──────────────────────────
+        // ── Real mode: call HF Space directly ───────────────────────────────
         setAnalysisStage("uploading");
         setProgress(8);
-
-        const jobId = await submitAudioJob(audioBlob, user?.id || 1);
-
-        aiResult = await pollJobUntilDone(jobId, (stage) => {
+ 
+        aiResult = await submitAudioJob(audioBlob, user?.id || 1, (stage) => {
           setAnalysisStage(stage);
           const idx = STAGE_ORDER.indexOf(stage);
           setProgress(idx >= 0 ? 10 + Math.round((idx / (STAGE_ORDER.length - 1)) * 85) : 10);
