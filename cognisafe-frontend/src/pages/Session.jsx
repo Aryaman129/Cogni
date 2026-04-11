@@ -5,14 +5,16 @@ import {
   checkToday,
   saveSession,
   submitAudioJob,
-  pollJobUntilDone,
+  submitTextJob,
   STAGE_LABELS,
+  TEXT_STAGE_LABELS,
   STAGE_ORDER,
+  TEXT_STAGE_ORDER,
 } from "../services/sessionService";
 import "../styles/session.css";
 
 // ── PROMPTS ──
-const PROMPTS = [
+const VOICE_PROMPTS = [
   {
     text: "Describe what you see in this image in as much detail as you can — the objects, colours, setting, and what might be happening.",
     image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80",
@@ -40,9 +42,33 @@ const PROMPTS = [
   },
 ];
 
+const TEXT_PROMPTS = [
+  {
+    text: "Describe your morning routine in as much detail as possible — from the moment you wake up to when you leave home or start your day.",
+    category: "Daily Routine"
+  },
+  {
+    text: "Think of a place that means a lot to you and describe it in detail — what does it look like, smell like, feel like? Why is it special to you?",
+    category: "Memory & Place"
+  },
+  {
+    text: "Describe what you would do on a perfect day — where you would go, who you would be with, and what you would eat and see.",
+    category: "Imagination"
+  },
+  {
+    text: "Tell the story of how you met your best friend or a person who is important to you. Describe the first time you met and how the relationship grew.",
+    category: "Personal Story"
+  },
+  {
+    text: "Describe a skill or hobby you have learned. How did you start, what was difficult, and what do you enjoy most about it now?",
+    category: "Skills & Hobbies"
+  },
+];
+
 // ── CONSTANTS ──
-const TOTAL = 180; // 3 minutes in seconds
-const CIRC = 395; // 2 * π * 63
+const TOTAL = 180;
+const CIRC  = 395;
+const MIN_WORDS = 50; // minimum words for a valid text session
 
 // ── LOGO ICON ──
 const LogoIcon = () => (
@@ -57,97 +83,77 @@ const LogoIcon = () => (
 );
 
 // ── RESULT MESSAGES ──
-const GOOD_MSG = (name) => `Your <b>semantic coherence</b> is above your personal baseline — clear, connected thinking today. Pause frequency has improved. <b>Excellent session, ${name}!</b> Let's meet again tomorrow.`;
-const WARN_MSG = () => `Your pause frequency was slightly elevated today — possibly fatigue or stress. <b>Semantic coherence is holding steady</b>. Rest well and try again tomorrow.`;
-const BAD_MSG = (name) => `We noticed some changes in your voice patterns today, <b>${name}</b>. This can happen with fatigue or illness. You can <b>record again</b> to see if it improves, or rest and try tomorrow.`;
+const GOOD_MSG  = (name) => `Your <b>semantic coherence</b> is above your personal baseline — clear, connected thinking today. <b>Excellent session, ${name}!</b> Let's meet again tomorrow.`;
+const WARN_MSG  = ()     => `Some language patterns were slightly varied today — possibly fatigue or stress. <b>Semantic coherence is holding steady</b>. Rest well and try again tomorrow.`;
+const BAD_MSG   = (name) => `We noticed some changes in your language patterns today, <b>${name}</b>. This can happen with fatigue or illness. You can <b>try again</b> to see if it improves, or rest and try tomorrow.`;
 
 // ── HELPERS ──
 const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
+
+const countWords = (text) => text.trim().split(/\s+/).filter(Boolean).length;
 
 // ── WAVEFORM VISUALIZATION ──
 const WaveformVisualizer = ({ isRecording }) => {
-  const canvasRef = useRef(null);
+  const canvasRef    = useRef(null);
   const animationRef = useRef(null);
-  const analyserRef = useRef(null);
-  const streamRef = useRef(null);
+  const analyserRef  = useRef(null);
+  const streamRef    = useRef(null);
 
   useEffect(() => {
     if (!isRecording) {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
       return;
     }
-
     const setupAudio = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const analyser = audioContext.createAnalyser();
-        const source = audioContext.createMediaStreamSource(stream);
+        const analyser     = audioContext.createAnalyser();
+        const source       = audioContext.createMediaStreamSource(stream);
         source.connect(analyser);
-        analyser.fftSize = 256;
+        analyser.fftSize   = 256;
         analyserRef.current = analyser;
-
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+        const bufferLength  = analyser.frequencyBinCount;
+        const dataArray     = new Uint8Array(bufferLength);
 
         const draw = () => {
           if (!canvasRef.current || !analyserRef.current) return;
           const canvas = canvasRef.current;
-          const ctx = canvas.getContext('2d');
-          const width = canvas.clientWidth;
+          const ctx    = canvas.getContext("2d");
+          const width  = canvas.clientWidth;
           const height = canvas.clientHeight;
-
-          canvas.width = width;
+          canvas.width  = width;
           canvas.height = height;
-
           analyserRef.current.getByteTimeDomainData(dataArray);
-
           ctx.clearRect(0, 0, width, height);
           ctx.beginPath();
-          ctx.strokeStyle = '#D4A5B5';
-          ctx.lineWidth = 2;
-
+          ctx.strokeStyle = "#D4A5B5";
+          ctx.lineWidth   = 2;
           const sliceWidth = width / bufferLength;
           let x = 0;
-
           for (let i = 0; i < bufferLength; i++) {
             const v = dataArray[i] / 128.0;
             const y = (v * height) / 2;
-
-            if (i === 0) {
-              ctx.moveTo(x, y);
-            } else {
-              ctx.lineTo(x, y);
-            }
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
             x += sliceWidth;
           }
-
           ctx.stroke();
           animationRef.current = requestAnimationFrame(draw);
         };
-
         draw();
       } catch (err) {
         console.warn("Could not access microphone for visualization:", err);
       }
     };
-
     setupAudio();
-
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
   }, [isRecording]);
 
@@ -160,269 +166,203 @@ const WaveformVisualizer = ({ isRecording }) => {
       </div>
     );
   }
-
   return <canvas ref={canvasRef} className="waveform-canvas" />;
 };
 
-// ── MAIN SESSION COMPONENT ──
+// ════════════════════════════════════════════════════════════════
+// ── MAIN SESSION COMPONENT ──────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
 const Session = () => {
   const navigate = useNavigate();
   const { token, user, logout, getUserStorage, setUserStorage } = useAuth();
 
-  // Dark mode state (local)
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem("cog_dark");
-    return saved === "true";
-  });
-
+  // ── Theme ──
+  const [dark, setDark] = useState(() => localStorage.getItem("cog_dark") === "true");
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
     localStorage.setItem("cog_dark", String(next));
     document.documentElement.setAttribute("data-theme", next ? "dark" : "light");
   };
-
-  // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   }, [dark]);
 
-  // State
-  const [prompt] = useState(() => PROMPTS[Math.floor(Math.random() * PROMPTS.length)]);
+  // ── Mode: "voice" | "text" ──
+  const [mode, setMode] = useState("voice");
+
+  // ── Prompts ──
+  const [voicePrompt] = useState(() => VOICE_PROMPTS[Math.floor(Math.random() * VOICE_PROMPTS.length)]);
+  const [textPrompt]  = useState(() => TEXT_PROMPTS[Math.floor(Math.random() * TEXT_PROMPTS.length)]);
   const [skipped, setSkipped] = useState(false);
-  const [state, setState] = useState("checking");
-  const [timeLeft, setTimeLeft] = useState(TOTAL);
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [aiWarning, setAiWarning] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [volumeLevel, setVolumeLevel] = useState(0);
-  // ── NEW: tracks which pipeline stage we're currently in ──
+
+  // ── Shared state ──
+  const [state, setState]               = useState("checking");
+  const [result, setResult]             = useState(null);
+  const [errorMsg, setErrorMsg]         = useState(null);
+  const [progress, setProgress]         = useState(0);
   const [analysisStage, setAnalysisStage] = useState("uploading");
 
-  // Refs
-  const timerRef = useRef(null);
-  const progressRef = useRef(null);
+  // ── Voice-only state ──
+  const [timeLeft, setTimeLeft]     = useState(TOTAL);
+  const [transcript, setTranscript] = useState("");
+  const [volumeLevel, setVolumeLevel] = useState(0);
+
+  // ── Text-only state ──
+  const [typedText, setTypedText] = useState("");
+  const wordCount = countWords(typedText);
+  const textReady = wordCount >= MIN_WORDS;
+
+  // ── Refs ──
+  const timerRef         = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const resultRef = useRef(null);
-  const abortRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const audioContextRef = useRef(null);
+  const chunksRef        = useRef([]);
+  const resultRef        = useRef(null);
+  const recognitionRef   = useRef(null);
+  const audioContextRef  = useRef(null);
   const volumeIntervalRef = useRef(null);
 
-  // Fallback timeout - force idle if stuck on checking
-  useEffect(() => {
-    const fallbackTimeout = setTimeout(() => {
-      if (state === "checking") {
-        console.log("Fallback: forcing idle state");
-        setState("idle");
-      }
-    }, 3000);
+  // ── Ring maths ──
+  const offset      = CIRC * (timeLeft / TOTAL);
+  const strokeColor = timeLeft / TOTAL > 0.5 ? "url(#gradient)" : timeLeft / TOTAL > 0.25 ? "#E5B56A" : "#E58383";
 
-    return () => clearTimeout(fallbackTimeout);
+  // ── Fallback timeout for "checking" state ──
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (state === "checking") setState("idle");
+    }, 3000);
+    return () => clearTimeout(t);
   }, []);
 
-  // Check if already recorded today for THIS user - WITH TIMEOUT
+  // ── Check if already recorded today ──
   useEffect(() => {
     let isMounted = true;
-    let timeoutId;
-    let checkTimeout;
-
     const check = async () => {
-      timeoutId = setTimeout(() => {
-        if (isMounted && state === "checking") {
-          console.log("Force exiting checking state - timeout reached");
-          setState("idle");
-        }
-      }, 2000);
-
+      const timeout = setTimeout(() => { if (isMounted && state === "checking") setState("idle"); }, 2000);
       try {
-        if (!user?.id) {
-          clearTimeout(timeoutId);
-          if (isMounted) setState("idle");
-          return;
-        }
-
+        if (!user?.id) { clearTimeout(timeout); if (isMounted) setState("idle"); return; }
         const lastSess = getUserStorage?.("last_session");
         const lastTier = getUserStorage?.("last_result_tier");
-
         if (lastSess && lastTier === "Green") {
           const sameDay = new Date(lastSess).toDateString() === new Date().toDateString();
-          if (sameDay) {
-            clearTimeout(timeoutId);
-            if (isMounted) setState("donegood");
-            return;
-          }
+          if (sameDay) { clearTimeout(timeout); if (isMounted) setState("donegood"); return; }
         }
-
         const isDemo = user?.email?.includes("demo");
         if (token && !isDemo) {
           try {
             const res = await checkToday(token);
             if (res.recorded && res.risk_tier === "Green") {
-              clearTimeout(timeoutId);
-              if (isMounted) setState("donegood");
-              return;
+              clearTimeout(timeout); if (isMounted) setState("donegood"); return;
             }
-          } catch (err) {
-            console.log("Backend check failed:", err);
-          }
+          } catch (e) { console.log("Backend check failed:", e); }
         }
-
-        clearTimeout(timeoutId);
+        clearTimeout(timeout);
         if (isMounted) setState("idle");
-
-      } catch (err) {
-        console.error("Check error:", err);
-        clearTimeout(timeoutId);
+      } catch (e) {
+        clearTimeout(timeout);
         if (isMounted) setState("idle");
       }
     };
-
     check();
-
-    return () => {
-      isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
-      if (checkTimeout) clearTimeout(checkTimeout);
-    };
+    return () => { isMounted = false; };
   }, [token, user, getUserStorage]);
 
-  // Cleanup on unmount
+  // ── Cleanup on unmount ──
   useEffect(() => {
     return () => {
       clearInterval(timerRef.current);
-      clearInterval(progressRef.current);
       clearInterval(volumeIntervalRef.current);
-      abortRef.current?.abort();
-      if (mediaRecorderRef.current?.stream) {
-        mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
-      }
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) { }
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      if (mediaRecorderRef.current?.stream) mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      try { recognitionRef.current?.stop(); } catch (e) {}
+      audioContextRef.current?.close();
     };
   }, []);
 
-  // Timer ring calculations
-  const offset = CIRC * (timeLeft / TOTAL);
-  const strokeColor = timeLeft / TOTAL > 0.5 ? "url(#gradient)" : timeLeft / TOTAL > 0.25 ? "#E5B56A" : "#E58383";
+  // ── Switch mode — reset state ──
+  const switchMode = (newMode) => {
+    if (state === "recording" || state === "analysing") return; // don't allow mid-session
+    setMode(newMode);
+    setSkipped(false);
+    setTypedText("");
+    setResult(null);
+    setErrorMsg(null);
+    setProgress(0);
+    setState("idle");
+  };
 
-  // Monitor volume during recording
+  // ════════════════════════════
+  // ── VOICE MODE HANDLERS ──
+  // ════════════════════════════
   const startVolumeMonitoring = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream      = await navigator.mediaDevices.getUserMedia({ audio: true });
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
+      const source      = audioContext.createMediaStreamSource(stream);
+      const analyser    = audioContext.createAnalyser();
       source.connect(analyser);
-      analyser.fftSize = 256;
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
+      analyser.fftSize  = 256;
+      const dataArray   = new Uint8Array(analyser.frequencyBinCount);
       volumeIntervalRef.current = setInterval(() => {
         analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        const level = Math.min(100, (average / 255) * 100);
-        setVolumeLevel(level);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        setVolumeLevel(Math.min(100, (avg / 255) * 100));
       }, 100);
-
       audioContextRef.current = audioContext;
-    } catch (err) {
-      console.warn("Could not monitor volume:", err);
-    }
+    } catch (e) { console.warn("Volume monitoring failed:", e); }
   };
 
   const stopVolumeMonitoring = () => {
     clearInterval(volumeIntervalRef.current);
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
+    audioContextRef.current?.close();
     setVolumeLevel(0);
   };
 
-  // Start recording
   const startRecording = async () => {
     setErrorMsg(null);
-    setAiWarning(false);
     setTranscript("");
     setVolumeLevel(0);
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
+      const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
-
-      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-      mediaRecorderRef.current = mediaRecorder;
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorderRef.current = mr;
       chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.start(250);
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.start(250);
       startVolumeMonitoring();
-    } catch (err) {
-      console.warn("Mic access denied:", err.message);
-    }
+    } catch (e) { console.warn("Mic access denied:", e.message); }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event) => {
-        let currentTranscript = "";
-        for (let i = 0; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
-        }
-        setTranscript(currentTranscript);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      const rec = new SR();
+      rec.continuous = true; rec.interimResults = true; rec.lang = "en-US";
+      rec.onresult = (e) => {
+        let t = "";
+        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        setTranscript(t);
       };
-
-      recognition.onerror = (event) => {
-        console.warn("Speech recognition error", event.error);
-      };
-
-      try {
-        recognition.start();
-        recognitionRef.current = recognition;
-      } catch (err) {
-        console.warn("Could not start speech recognition", err);
-      }
+      rec.onerror = (e) => console.warn("Speech recognition error", e.error);
+      try { rec.start(); recognitionRef.current = rec; } catch (e) {}
     }
 
     setState("recording");
     setTimeLeft(TOTAL);
     setProgress(0);
-
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         const next = prev - 1;
         setProgress(((TOTAL - next) / TOTAL) * 55);
-        if (next <= 0) {
-          stopRecording();
-          return 0;
-        }
+        if (next <= 0) { stopRecording(); return 0; }
         return next;
       });
     }, 1000);
   };
 
-  // ── UPDATED: Stop recording — submit job and poll for result ──
   const stopRecording = useCallback(async () => {
     clearInterval(timerRef.current);
     stopVolumeMonitoring();
 
-    // Collect audio blob
     let audioBlob = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       await new Promise((resolve) => {
@@ -435,10 +375,7 @@ const Session = () => {
         audioBlob = new Blob(chunksRef.current, { type: mimeType });
       }
     }
-
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) { }
-    }
+    try { recognitionRef.current?.stop(); } catch (e) {}
 
     setState("analysing");
     setAnalysisStage("uploading");
@@ -449,15 +386,14 @@ const Session = () => {
       const isDemo = user?.email?.includes("demo");
 
       if (isDemo) {
-        // ── Demo mode: simulate stage-by-stage progress ──────────────────────
         for (let i = 0; i < STAGE_ORDER.length; i++) {
           setAnalysisStage(STAGE_ORDER[i]);
           setProgress(Math.round(((i + 1) / STAGE_ORDER.length) * 100));
           await new Promise(r => setTimeout(r, 600));
         }
-        const riskTier = Math.random() > 0.8 ? "Yellow" : "Green";
         aiResult = {
-          risk_tier: riskTier,
+          risk_tier: Math.random() > 0.8 ? "Yellow" : "Green",
+          mode: "voice",
           biomarkers: {
             semantic_coherence: 0.75 + Math.random() * 0.2,
             lexical_diversity:  0.65 + Math.random() * 0.15,
@@ -468,24 +404,20 @@ const Session = () => {
           },
           anomaly_flags: [],
         };
-
       } else if (audioBlob && audioBlob.size > 1000) {
-        // ── Real mode: call HF Space directly ───────────────────────────────
         setAnalysisStage("uploading");
         setProgress(8);
- 
         aiResult = await submitAudioJob(audioBlob, user?.id || 1, (stage) => {
           setAnalysisStage(stage);
           const idx = STAGE_ORDER.indexOf(stage);
           setProgress(idx >= 0 ? 10 + Math.round((idx / (STAGE_ORDER.length - 1)) * 85) : 10);
         });
-
       } else {
-        // ── No audio blob — fallback mock ────────────────────────────────────
         setAnalysisStage("done");
         setProgress(100);
         aiResult = {
           risk_tier: "Green",
+          mode: "voice",
           biomarkers: {
             semantic_coherence: Number((0.80 + Math.random() * 0.1).toFixed(2)),
             lexical_diversity:  Number((0.70 + Math.random() * 0.1).toFixed(2)),
@@ -498,31 +430,8 @@ const Session = () => {
         };
       }
 
-      // Save to backend for real users
-      if (token && !user?.email?.includes("demo")) {
-        try {
-          await saveSession(token, aiResult);
-        } catch (saveErr) {
-          console.warn("Failed to save session:", saveErr.message);
-        }
-      }
-
-      // Save to user-specific localStorage
-      if (user?.id && setUserStorage) {
-        setUserStorage("last_session", new Date().toISOString());
-        setUserStorage("last_result_tier", aiResult.risk_tier);
-      } else {
-        localStorage.setItem("cog_last_session", new Date().toISOString());
-        localStorage.setItem("cog_last_result_tier", aiResult.risk_tier);
-      }
-
-      setProgress(100);
-      setResult(aiResult);
-      setState("done");
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 200);
-
+      await _finaliseResult(aiResult);
     } catch (err) {
-      clearInterval(progressRef.current);
       console.error("Session error:", err);
       setErrorMsg(err.message || "Something went wrong. Please try again.");
       setState("error");
@@ -530,18 +439,85 @@ const Session = () => {
     }
   }, [token, user, setUserStorage]);
 
+  // ════════════════════════════
+  // ── TEXT MODE HANDLER ──
+  // ════════════════════════════
+  const submitText = async () => {
+    if (!textReady) return;
+    setErrorMsg(null);
+    setState("analysing");
+    setAnalysisStage("nlp");
+    setProgress(10);
+
+    try {
+      let aiResult;
+      const isDemo = user?.email?.includes("demo");
+
+      if (isDemo) {
+        // Simulate text analysis stages
+        for (let i = 0; i < TEXT_STAGE_ORDER.length; i++) {
+          setAnalysisStage(TEXT_STAGE_ORDER[i]);
+          setProgress(Math.round(((i + 1) / TEXT_STAGE_ORDER.length) * 100));
+          await new Promise(r => setTimeout(r, 800));
+        }
+        aiResult = {
+          risk_tier: Math.random() > 0.8 ? "Yellow" : "Green",
+          mode: "text",
+          biomarkers: {
+            semantic_coherence:   0.72 + Math.random() * 0.2,
+            lexical_diversity:    0.60 + Math.random() * 0.2,
+            idea_density:         0.38 + Math.random() * 0.1,
+            syntactic_complexity: 3.5  + Math.random() * 2,
+            // Acoustic biomarkers are null in text mode
+            speech_rate: null, pause_frequency: null, hnr: null,
+            jitter: null, shimmer: null, pitch_mean: null,
+          },
+          anomaly_flags: [],
+        };
+      } else {
+        aiResult = await submitTextJob(typedText, user?.id || 1, (stage) => {
+          setAnalysisStage(stage);
+          const idx = TEXT_STAGE_ORDER.indexOf(stage);
+          setProgress(idx >= 0 ? 20 + Math.round((idx / (TEXT_STAGE_ORDER.length - 1)) * 75) : 20);
+        });
+      }
+
+      await _finaliseResult(aiResult);
+    } catch (err) {
+      console.error("Text session error:", err);
+      setErrorMsg(err.message || "Something went wrong. Please try again.");
+      setState("error");
+      setProgress(0);
+    }
+  };
+
+  // ── Shared finalise: save + set state ──
+  const _finaliseResult = async (aiResult) => {
+    if (token && !user?.email?.includes("demo")) {
+      try { await saveSession(token, aiResult); }
+      catch (e) { console.warn("Failed to save session:", e.message); }
+    }
+    if (user?.id && setUserStorage) {
+      setUserStorage("last_session", new Date().toISOString());
+      setUserStorage("last_result_tier", aiResult.risk_tier);
+    } else {
+      localStorage.setItem("cog_last_session", new Date().toISOString());
+      localStorage.setItem("cog_last_result_tier", aiResult.risk_tier);
+    }
+    setProgress(100);
+    setResult(aiResult);
+    setState("done");
+    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 200);
+  };
+
+  // ── Cancel ──
   const cancelSession = () => {
     clearInterval(timerRef.current);
-    clearInterval(progressRef.current);
     clearInterval(volumeIntervalRef.current);
-    abortRef.current?.abort();
-    if (mediaRecorderRef.current?.stream) {
-      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
-    }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) { }
-    }
+    if (mediaRecorderRef.current?.stream) mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+    try { recognitionRef.current?.stop(); } catch (e) {}
     setTranscript("");
+    setTypedText("");
     setState("idle");
     setTimeLeft(TOTAL);
     setProgress(0);
@@ -549,13 +525,15 @@ const Session = () => {
     setErrorMsg(null);
   };
 
-  const retrySession = () => {
-    cancelSession();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const retrySession = () => { cancelSession(); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
-  const userName = user?.name?.split(" ")[0] || "there";
-  const canRetry = result && result.risk_tier !== "Green";
+  // ── Result helpers ──
+  const userName      = user?.name?.split(" ")[0] || "there";
+  const canRetry      = result && result.risk_tier !== "Green";
+  const riskBadgeClass = !result ? "rb-green"
+    : result.risk_tier === "Green" ? "rb-green"
+    : result.risk_tier === "Yellow" ? "rb-yellow"
+    : "rb-red";
 
   const getMessage = () => {
     if (!result) return "";
@@ -564,64 +542,252 @@ const Session = () => {
     return BAD_MSG(userName);
   };
 
-  const riskBadgeClass = !result ? "rb-green"
-    : result.risk_tier === "Green" ? "rb-green"
-      : result.risk_tier === "Yellow" ? "rb-yellow"
-        : "rb-red";
+  const currentStageLabels = mode === "text" ? TEXT_STAGE_LABELS : STAGE_LABELS;
+  const activePrompt       = mode === "text" ? textPrompt : voicePrompt;
 
+  // ════════════════════════════════════════════════════════════════
+  // ── RENDER ──────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════
   return (
     <div className={`session-root ${dark ? "dark" : "light"}`}>
-      {/* Navigation */}
+
+      {/* ── Text Mode extra styles ── */}
+      <style>{`
+        .mode-switcher {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 50px;
+          padding: 5px;
+          margin: 0 auto 32px;
+          width: fit-content;
+        }
+        .mode-btn {
+          display: flex; align-items: center; gap: 7px;
+          padding: 9px 22px; border-radius: 50px; border: none;
+          font-size: 13.5px; font-weight: 500; cursor: pointer;
+          font-family: 'Instrument Sans', sans-serif;
+          transition: all 0.2s ease;
+          background: transparent;
+          color: var(--text-secondary);
+        }
+        .mode-btn.active {
+          background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+          color: #fff;
+          box-shadow: 0 2px 12px rgba(155,79,122,0.3);
+        }
+        .mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .mode-tag {
+          display: inline-block; font-size: 10px; font-weight: 600;
+          padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
+          letter-spacing: 0.05em; background: rgba(255,255,255,0.25); color: inherit;
+        }
+
+        /* Text input area */
+        .text-session-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          padding: 32px;
+          margin-bottom: 20px;
+          box-shadow: var(--shadow);
+        }
+        .text-session-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 16px;
+        }
+        .text-session-title {
+          font-size: 16px; font-weight: 600; color: var(--text-primary);
+        }
+        .word-counter {
+          font-size: 12.5px; font-weight: 500;
+          color: var(--text-tertiary);
+          transition: color 0.3s;
+        }
+        .word-counter.ready { color: var(--success); }
+        .text-session-textarea {
+          width: 100%; min-height: 200px;
+          padding: 16px; border-radius: 14px;
+          border: 1.5px solid var(--border);
+          background: var(--bg-secondary);
+          color: var(--text-primary);
+          font-size: 15px; line-height: 1.7;
+          font-family: 'Instrument Sans', sans-serif;
+          resize: vertical; outline: none;
+          transition: border-color 0.2s;
+          box-sizing: border-box;
+        }
+        .text-session-textarea:focus { border-color: var(--accent-secondary); }
+        .text-session-textarea::placeholder { color: var(--text-tertiary); }
+        .text-session-textarea:disabled { opacity: 0.6; cursor: not-allowed; }
+        .text-hint {
+          margin-top: 10px; font-size: 12.5px; color: var(--text-tertiary);
+          display: flex; align-items: center; gap: 6px;
+        }
+        .text-progress-bar {
+          height: 4px; background: var(--border); border-radius: 4px;
+          margin-top: 10px; overflow: hidden;
+        }
+        .text-progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+          border-radius: 4px;
+          transition: width 0.3s ease;
+        }
+        .text-submit-btn {
+          margin-top: 20px; width: 100%; padding: 14px 24px;
+          border-radius: 14px; border: none; cursor: pointer;
+          font-size: 15px; font-weight: 600;
+          font-family: 'Instrument Sans', sans-serif;
+          background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+          color: #fff;
+          box-shadow: 0 4px 18px rgba(155,79,122,0.3);
+          transition: all 0.2s ease;
+          display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .text-submit-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 24px rgba(155,79,122,0.4);
+        }
+        .text-submit-btn:disabled {
+          opacity: 0.45; cursor: not-allowed; transform: none;
+        }
+
+        /* Text mode results — only show NLP biomarkers */
+        .text-mode-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 11.5px; padding: 4px 12px; border-radius: 20px;
+          background: rgba(155,79,122,0.1);
+          color: var(--accent-secondary); font-weight: 500;
+          margin-bottom: 12px;
+        }
+
+        /* Text mode analysis progress */
+        .text-analysing-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          padding: 48px 32px;
+          text-align: center;
+          box-shadow: var(--shadow);
+        }
+        .text-analysing-icon {
+          font-size: 40px; margin-bottom: 16px;
+          animation: floatIcon 2s ease-in-out infinite;
+        }
+        @keyframes floatIcon {
+          0%,100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        .text-analysing-title {
+          font-size: 20px; font-weight: 600;
+          color: var(--text-primary); margin-bottom: 8px;
+        }
+        .text-analysing-sub {
+          font-size: 14px; color: var(--text-secondary); margin-bottom: 28px;
+        }
+        .text-stage-list {
+          display: flex; flex-direction: column; gap: 10px;
+          max-width: 320px; margin: 0 auto 24px;
+        }
+        .text-stage-item {
+          display: flex; align-items: center; gap: 12px;
+          padding: 10px 16px; border-radius: 12px;
+          background: var(--bg-secondary); border: 1px solid var(--border);
+          font-size: 13.5px; color: var(--text-secondary);
+          transition: all 0.3s ease;
+        }
+        .text-stage-item.active {
+          background: linear-gradient(135deg, rgba(196,176,248,0.15), rgba(155,79,122,0.1));
+          border-color: var(--accent-primary);
+          color: var(--text-primary);
+        }
+        .text-stage-item.done {
+          color: var(--success);
+          border-color: rgba(127,183,126,0.3);
+        }
+        .text-stage-dot {
+          width: 8px; height: 8px; border-radius: 50%;
+          background: var(--border); flex-shrink: 0; transition: background 0.3s;
+        }
+        .text-stage-item.active .text-stage-dot {
+          background: var(--accent-secondary);
+          box-shadow: 0 0 8px rgba(155,79,122,0.5);
+          animation: pulseDot 1s infinite;
+        }
+        .text-stage-item.done .text-stage-dot { background: var(--success); }
+        @keyframes pulseDot {
+          0%,100% { transform: scale(1); }
+          50% { transform: scale(1.4); }
+        }
+      `}</style>
+
+      {/* ── Navigation ── */}
       <nav className="session-nav">
         <div className="nav-brand" onClick={() => navigate("/")}>
-          <div className="brand-ring">
-            <LogoIcon />
-          </div>
+          <div className="brand-ring"><LogoIcon /></div>
           <span className="brand-name">CogniSafe</span>
         </div>
-
         <div className="nav-links">
           <button className="nav-link" onClick={() => navigate("/dashboard")}>Dashboard</button>
           <button className="nav-link active">Session</button>
           <button className="nav-link" onClick={() => navigate("/ar-report")}>Report</button>
         </div>
-
         <div className="nav-actions">
-          <button className="theme-toggle" onClick={toggleTheme}>
-            {dark ? "☀️" : "🌙"}
-          </button>
-          <button className="dashboard-link" onClick={() => navigate("/dashboard")}>
-            Dashboard
-          </button>
+          <button className="theme-toggle" onClick={toggleTheme}>{dark ? "☀️" : "🌙"}</button>
+          <button className="dashboard-link" onClick={() => navigate("/dashboard")}>Dashboard</button>
           <div className="user-menu" onClick={logout}>
-            <div className="user-avatar">
-              {user?.name?.charAt(0)?.toUpperCase() || "U"}
-            </div>
+            <div className="user-avatar">{user?.name?.charAt(0)?.toUpperCase() || "U"}</div>
           </div>
         </div>
       </nav>
 
-      {/* Main Content */}
+      {/* ── Main ── */}
       <main className="session-main">
-        {/* Header */}
+
+        {/* ── Header ── */}
         <div className="session-header">
-          <div className="session-badge">Daily Voice Session</div>
+          <div className="session-badge">Daily Session</div>
           <h1 className="session-title">
-            Speak freely.<br />
-            <span className="highlight">We listen carefully.</span>
+            {mode === "voice" ? <>Speak freely.<br /><span className="highlight">We listen carefully.</span></>
+              : <>Write freely.<br /><span className="highlight">We analyse carefully.</span></>}
           </h1>
           <p className="session-description">
-            Find a quiet space, then speak naturally for 3 minutes about anything — your day, thoughts, a story.
-            The more natural, the better.
+            {mode === "voice"
+              ? "Find a quiet space, then speak naturally for 3 minutes. The more natural, the better."
+              : "Write at least 50 words in response to today's prompt. Your language patterns will be analysed for cognitive health insights."}
           </p>
         </div>
 
-        {/* State: Done Today */}
+        {/* ── Mode Switcher ── */}
+        {(state === "idle" || state === "done" || state === "error") && (
+          <div className="mode-switcher">
+            <button
+              className={`mode-btn ${mode === "voice" ? "active" : ""}`}
+              onClick={() => switchMode("voice")}
+              disabled={state === "recording" || state === "analysing"}
+            >
+              🎙️ Voice Mode
+            </button>
+            <button
+              className={`mode-btn ${mode === "text" ? "active" : ""}`}
+              onClick={() => switchMode("text")}
+              disabled={state === "recording" || state === "analysing"}
+            >
+              ✍️ Text Mode
+              <span className="mode-tag">Accessibility</span>
+            </button>
+          </div>
+        )}
+
+        {/* ── Done Today ── */}
         {state === "donegood" && (
           <div className="done-card">
             <div className="done-icon">🌿</div>
             <h2>You've completed today's session!</h2>
-            <p>Your cognitive health is looking great today. Your voice data has been recorded and analysed.</p>
+            <p>Your cognitive health is looking great today. Your data has been recorded and analysed.</p>
             <div className="done-badge">Cognitive health: Good</div>
             <p className="done-quote">"Your semantic coherence score is above your personal baseline. Keep up the great work — let's meet again tomorrow!"</p>
             <div className="done-actions">
@@ -631,7 +797,7 @@ const Session = () => {
           </div>
         )}
 
-        {/* State: Error */}
+        {/* ── Error ── */}
         {state === "error" && (
           <div className="error-card">
             <div className="error-icon">⚠️</div>
@@ -644,7 +810,7 @@ const Session = () => {
           </div>
         )}
 
-        {/* State: Checking */}
+        {/* ── Checking ── */}
         {state === "checking" && (
           <div className="loading-card">
             <div className="loading-spinner"></div>
@@ -652,28 +818,25 @@ const Session = () => {
           </div>
         )}
 
-        {/* Main Session Interface */}
-        {(state === "idle" || state === "recording" || state === "analysing" || state === "done") && (
+        {/* ══════════════════════════════════════════════
+            VOICE MODE UI
+        ══════════════════════════════════════════════ */}
+        {mode === "voice" && (state === "idle" || state === "recording" || state === "analysing" || state === "done") && (
           <>
-            {/* Prompt Card */}
+            {/* Prompt */}
             {!skipped && (
               <div className="prompt-card">
                 <div className="prompt-header">
-                  <span className="prompt-category">{prompt.category}</span>
+                  <span className="prompt-category">{voicePrompt.category}</span>
                   <span className="prompt-badge">Today's Prompt</span>
                 </div>
-                <div className="prompt-text">"{prompt.text}"</div>
-                {prompt.image && (
-                  <img className="prompt-image" src={prompt.image} alt="Session prompt" />
-                )}
+                <div className="prompt-text">"{voicePrompt.text}"</div>
+                {voicePrompt.image && <img className="prompt-image" src={voicePrompt.image} alt="Session prompt" />}
                 {state === "idle" && (
-                  <button className="skip-btn" onClick={() => setSkipped(true)}>
-                    Skip prompt & speak freely →
-                  </button>
+                  <button className="skip-btn" onClick={() => setSkipped(true)}>Skip prompt & speak freely →</button>
                 )}
               </div>
             )}
-
             {skipped && (
               <div className="free-mode-card">
                 <div className="free-mode-icon">🎙️</div>
@@ -685,7 +848,6 @@ const Session = () => {
             {/* Recorder Card */}
             <div className="recorder-card">
               <div className="recorder-visual">
-                {/* Timer Ring */}
                 <div className="timer-ring">
                   <svg className="timer-svg" viewBox="0 0 140 140">
                     <defs>
@@ -695,15 +857,8 @@ const Session = () => {
                       </linearGradient>
                     </defs>
                     <circle className="timer-track" cx="70" cy="70" r="63" />
-                    <circle
-                      className="timer-progress"
-                      cx="70"
-                      cy="70"
-                      r="63"
-                      stroke={strokeColor}
-                      strokeDasharray={CIRC}
-                      strokeDashoffset={offset}
-                    />
+                    <circle className="timer-progress" cx="70" cy="70" r="63"
+                      stroke={strokeColor} strokeDasharray={CIRC} strokeDashoffset={offset} />
                   </svg>
                   <div className="timer-center">
                     <div className="timer-value">{formatTime(timeLeft)}</div>
@@ -715,21 +870,16 @@ const Session = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Volume Meter */}
                 {state === "recording" && (
                   <div className="volume-meter">
                     <div className="volume-bar" style={{ width: `${volumeLevel}%` }} />
                   </div>
                 )}
-
-                {/* Waveform Visualization */}
                 <div className="waveform-container">
                   <WaveformVisualizer isRecording={state === "recording"} />
                 </div>
               </div>
 
-              {/* Status — shows live stage label during analysis */}
               <div className={`status-pill ${state === "recording" ? "recording" : state === "analysing" ? "analysing" : state === "done" ? "done" : "idle"}`}>
                 <span className="status-dot"></span>
                 <span className="status-text">
@@ -740,49 +890,33 @@ const Session = () => {
                 </span>
               </div>
 
-              {/* Progress Steps — expanded to show all pipeline stages */}
               <div className="progress-steps">
-                {/* Step 1: Record */}
-                <div className={`step ${
-                  state === "idle" || state === "recording" ? "active"
-                  : state === "analysing" || state === "done" ? "completed" : ""
-                }`}>
-                  <span className="step-number">1</span>
-                  <span className="step-label">Record</span>
+                <div className={`step ${state === "idle" || state === "recording" ? "active" : state === "analysing" || state === "done" ? "completed" : ""}`}>
+                  <span className="step-number">1</span><span className="step-label">Record</span>
                 </div>
-
-                {/* Steps 2–5: Pipeline stages */}
                 {["transcribing", "acoustic", "nlp", "risk"].map((stage, i) => {
-                  const stageIdx = STAGE_ORDER.indexOf(analysisStage);
-                  const thisIdx  = STAGE_ORDER.indexOf(stage);
-                  const isActive   = state === "analysing" && analysisStage === stage;
-                  const isComplete = state === "done" || (state === "analysing" && stageIdx > thisIdx);
+                  const stageIdx  = STAGE_ORDER.indexOf(analysisStage);
+                  const thisIdx   = STAGE_ORDER.indexOf(stage);
+                  const isActive  = state === "analysing" && analysisStage === stage;
+                  const isDone    = state === "done" || (state === "analysing" && stageIdx > thisIdx);
                   return (
-                    <div key={stage} className={`step ${isActive ? "active" : isComplete ? "completed" : ""}`}>
+                    <div key={stage} className={`step ${isActive ? "active" : isDone ? "completed" : ""}`}>
                       <span className="step-number">{i + 2}</span>
                       <span className="step-label">
-                        {stage === "transcribing" ? "Transcribe"
-                          : stage === "acoustic"   ? "Acoustic"
-                          : stage === "nlp"        ? "NLP"
-                          : "Risk"}
+                        {stage === "transcribing" ? "Transcribe" : stage === "acoustic" ? "Acoustic" : stage === "nlp" ? "NLP" : "Risk"}
                       </span>
                     </div>
                   );
                 })}
-
-                {/* Step 6: Results */}
                 <div className={`step ${state === "done" ? "completed" : ""}`}>
-                  <span className="step-number">6</span>
-                  <span className="step-label">Results</span>
+                  <span className="step-number">6</span><span className="step-label">Results</span>
                 </div>
               </div>
 
-              {/* Progress Bar */}
               <div className="progress-bar-container">
                 <div className="progress-fill" style={{ width: `${progress}%` }} />
               </div>
 
-              {/* Controls */}
               {state !== "done" && (
                 <div className="recorder-controls">
                   <button
@@ -790,24 +924,9 @@ const Session = () => {
                     onClick={state === "idle" ? startRecording : stopRecording}
                     disabled={state === "analysing"}
                   >
-                    {state === "idle" && (
-                      <>
-                        <span className="record-icon">●</span>
-                        Start Recording
-                      </>
-                    )}
-                    {state === "recording" && (
-                      <>
-                        <span className="stop-icon">■</span>
-                        Stop Recording
-                      </>
-                    )}
-                    {state === "analysing" && (
-                      <>
-                        <span className="loading-spinner-small"></span>
-                        Analysing...
-                      </>
-                    )}
+                    {state === "idle"      && <><span className="record-icon">●</span>Start Recording</>}
+                    {state === "recording" && <><span className="stop-icon">■</span>Stop Recording</>}
+                    {state === "analysing" && <><span className="loading-spinner-small"></span>Analysing...</>}
                   </button>
                   <button className="cancel-btn" onClick={cancelSession} disabled={state === "analysing"}>
                     {state === "idle" ? "Cancel" : "Stop & Cancel"}
@@ -815,62 +934,172 @@ const Session = () => {
                 </div>
               )}
 
-              {/* Live Transcript */}
               {state === "recording" && transcript && (
                 <div className="transcript-box">
                   <div className="transcript-header">Live Transcript</div>
                   <div className="transcript-text">"{transcript}"</div>
                 </div>
               )}
-
-              {/* AI Warning */}
-              {state === "done" && aiWarning && (
-                <div className="ai-warning">
-                  ⚠️ AI service was unreachable — result is a demo simulation. Real analysis will run when the AI service is available.
-                </div>
-              )}
             </div>
+          </>
+        )}
 
-            {/* Results Panel */}
-            {state === "done" && result && (
-              <div className="results-card" ref={resultRef}>
-                <div className="results-header">
-                  <h3>Session Results</h3>
-                  <div className={`results-badge ${riskBadgeClass}`}>
-                    ● {result.risk_tier} — {result.risk_tier === "Green" ? "Good" : result.risk_tier === "Yellow" ? "Watch" : "Alert"}
-                  </div>
+        {/* ══════════════════════════════════════════════
+            TEXT MODE UI
+        ══════════════════════════════════════════════ */}
+        {mode === "text" && (state === "idle" || state === "analysing" || state === "done") && (
+          <>
+            {/* Text Prompt */}
+            {state === "idle" && (
+              <div className="prompt-card">
+                <div className="prompt-header">
+                  <span className="prompt-category">{textPrompt.category}</span>
+                  <span className="prompt-badge">Today's Prompt</span>
                 </div>
+                <div className="prompt-text">"{textPrompt.text}"</div>
+              </div>
+            )}
 
-                <div className="results-metrics">
-                  <div className="metric">
-                    <span className="metric-label">Risk Score</span>
-                    <span className="metric-value">{result.risk_tier === "Green" ? "0.18" : result.risk_tier === "Yellow" ? "0.35" : "0.52"}</span>
-                  </div>
-                  <div className="metric">
-                    <span className="metric-label">Semantic Coherence</span>
-                    <span className="metric-value">{result.biomarkers?.semantic_coherence?.toFixed(2) || "0.83"}</span>
-                  </div>
-                  <div className="metric">
-                    <span className="metric-label">Speech Rate</span>
-                    <span className="metric-value">{Math.round(result.biomarkers?.speech_rate || 118)} wpm</span>
-                  </div>
-                  <div className="metric">
-                    <span className="metric-label">Pause Frequency</span>
-                    <span className="metric-value">{result.biomarkers?.pause_frequency?.toFixed(1) || "2.8"}/min</span>
-                  </div>
+            {/* Text Input Card */}
+            {state === "idle" && (
+              <div className="text-session-card">
+                <div className="text-session-header">
+                  <span className="text-session-title">Your Response</span>
+                  <span className={`word-counter ${textReady ? "ready" : ""}`}>
+                    {wordCount} / {MIN_WORDS} words {textReady ? "✓" : ""}
+                  </span>
                 </div>
+                <textarea
+                  className="text-session-textarea"
+                  placeholder="Start writing here... Describe your thoughts in as much detail as possible. The more you write, the more accurate your analysis will be."
+                  value={typedText}
+                  onChange={(e) => setTypedText(e.target.value)}
+                  disabled={state === "analysing"}
+                />
+                <div className="text-progress-bar">
+                  <div className="text-progress-fill"
+                    style={{ width: `${Math.min(100, (wordCount / MIN_WORDS) * 100)}%` }} />
+                </div>
+                <div className="text-hint">
+                  <span>💡</span>
+                  <span>Write naturally and in detail — your vocabulary, sentence structure, and idea flow are what matter, not spelling or grammar.</span>
+                </div>
+                <button className="text-submit-btn" onClick={submitText} disabled={!textReady}>
+                  {textReady ? "✓ Analyse My Writing" : `Write ${MIN_WORDS - wordCount} more words to continue`}
+                </button>
+              </div>
+            )}
 
-                <div className="results-message" dangerouslySetInnerHTML={{ __html: getMessage() }} />
-
-                <div className="results-actions">
-                  <button className="btn-primary" onClick={() => navigate("/dashboard")}>View Dashboard</button>
-                  {canRetry && <button className="btn-secondary" onClick={retrySession}>Record Again</button>}
-                  <button className="btn-secondary" onClick={() => navigate("/ar-report")}>View Full Report</button>
+            {/* Text Analysing State */}
+            {state === "analysing" && (
+              <div className="text-analysing-card">
+                <div className="text-analysing-icon">🧠</div>
+                <div className="text-analysing-title">Analysing your writing...</div>
+                <div className="text-analysing-sub">
+                  Running cognitive language analysis on your text
+                </div>
+                <div className="text-stage-list">
+                  {[
+                    { key: "nlp",  label: "Analysing language patterns" },
+                    { key: "risk", label: "Computing risk tier" },
+                    { key: "done", label: "Complete" },
+                  ].map(({ key, label }) => {
+                    const order   = TEXT_STAGE_ORDER.indexOf(key);
+                    const current = TEXT_STAGE_ORDER.indexOf(analysisStage);
+                    const isActive = analysisStage === key;
+                    const isDone   = current > order;
+                    return (
+                      <div key={key} className={`text-stage-item ${isActive ? "active" : isDone ? "done" : ""}`}>
+                        <div className="text-stage-dot" />
+                        {isDone ? "✓ " : ""}{label}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="progress-bar-container">
+                  <div className="progress-fill" style={{ width: `${progress}%` }} />
                 </div>
               </div>
             )}
           </>
         )}
+
+        {/* ══════════════════════════════════════════════
+            RESULTS PANEL (shared for both modes)
+        ══════════════════════════════════════════════ */}
+        {state === "done" && result && (
+          <div className="results-card" ref={resultRef}>
+            <div className="results-header">
+              <h3>Session Results</h3>
+              <div className={`results-badge ${riskBadgeClass}`}>
+                ● {result.risk_tier} — {result.risk_tier === "Green" ? "Good" : result.risk_tier === "Yellow" ? "Watch" : "Alert"}
+              </div>
+            </div>
+
+            {/* Text mode label */}
+            {result.mode === "text" && (
+              <div className="text-mode-badge">✍️ Text Mode — NLP biomarkers only</div>
+            )}
+
+            <div className="results-metrics">
+              <div className="metric">
+                <span className="metric-label">Risk Score</span>
+                <span className="metric-value">
+                  {result.risk_tier === "Green" ? "0.18" : result.risk_tier === "Yellow" ? "0.35" : "0.52"}
+                </span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Semantic Coherence</span>
+                <span className="metric-value">
+                  {result.biomarkers?.semantic_coherence != null
+                    ? result.biomarkers.semantic_coherence.toFixed(2) : "—"}
+                </span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Lexical Diversity</span>
+                <span className="metric-value">
+                  {result.biomarkers?.lexical_diversity != null
+                    ? result.biomarkers.lexical_diversity.toFixed(2) : "—"}
+                </span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Idea Density</span>
+                <span className="metric-value">
+                  {result.biomarkers?.idea_density != null
+                    ? result.biomarkers.idea_density.toFixed(3) : "—"}
+                </span>
+              </div>
+              {/* Show speech metrics only for voice mode */}
+              {result.mode !== "text" && (
+                <>
+                  <div className="metric">
+                    <span className="metric-label">Speech Rate</span>
+                    <span className="metric-value">
+                      {result.biomarkers?.speech_rate != null
+                        ? `${Math.round(result.biomarkers.speech_rate)} wpm` : "—"}
+                    </span>
+                  </div>
+                  <div className="metric">
+                    <span className="metric-label">Pause Frequency</span>
+                    <span className="metric-value">
+                      {result.biomarkers?.pause_frequency != null
+                        ? `${result.biomarkers.pause_frequency.toFixed(1)}/min` : "—"}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="results-message" dangerouslySetInnerHTML={{ __html: getMessage() }} />
+
+            <div className="results-actions">
+              <button className="btn-primary" onClick={() => navigate("/dashboard")}>View Dashboard</button>
+              {canRetry && <button className="btn-secondary" onClick={retrySession}>Try Again</button>}
+              <button className="btn-secondary" onClick={() => navigate("/ar-report")}>View Full Report</button>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );

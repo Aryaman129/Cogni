@@ -30,11 +30,17 @@ export const STAGE_LABELS = {
   done:         "Analysis complete ✓",
 };
 
-export const STAGE_ORDER = ["uploading", "transcribing", "acoustic", "nlp", "risk", "done"];
+// Text mode stage labels
+export const TEXT_STAGE_LABELS = {
+  nlp:  "Analysing language patterns...",
+  risk: "Computing risk tier...",
+  done: "Analysis complete ✓",
+};
 
-// ── Simulate stage progression while HF Space processes ──────────────────────
-// HF Space returns one blob at the end, so we advance stages on a timer
-// based on typical observed durations.
+export const STAGE_ORDER      = ["uploading", "transcribing", "acoustic", "nlp", "risk", "done"];
+export const TEXT_STAGE_ORDER = ["nlp", "risk", "done"];
+
+// ── Stage timings for voice mode progress simulation ─────────────────────────
 const STAGE_TIMINGS = [
   { stage: "transcribing", delay: 20000 },
   { stage: "acoustic",     delay: 15000 },
@@ -42,14 +48,13 @@ const STAGE_TIMINGS = [
   { stage: "risk",         delay: 5000  },
 ];
 
-// ── Submit audio DIRECTLY to HF Space and poll stage labels on a timer ────────
+// ── Submit audio DIRECTLY to HF Space ────────────────────────────────────────
 export const submitAudioJob = async (audioBlob, userId, onStageChange) => {
   const formData = new FormData();
   const audioFile = await blobToWav(audioBlob);
   formData.append("audio",   audioFile);
   formData.append("user_id", String(userId));
 
-  // Start stage advancement timer in parallel
   let stopped = false;
   const advanceStages = async () => {
     for (const { stage, delay } of STAGE_TIMINGS) {
@@ -61,7 +66,6 @@ export const submitAudioJob = async (audioBlob, userId, onStageChange) => {
   advanceStages();
 
   try {
-    // Direct call to HF Space — up to 8 minutes
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 480000); // 8 min
 
@@ -90,11 +94,56 @@ export const submitAudioJob = async (audioBlob, userId, onStageChange) => {
   }
 };
 
+// ── Submit TEXT directly to HF Space (text mode for mute users) ───────────────
+export const submitTextJob = async (text, userId, onStageChange) => {
+  // Simulate NLP stage advancement — text analysis is fast (~3-5s total)
+  let stopped = false;
+  const advanceStages = async () => {
+    onStageChange?.("nlp");
+    await new Promise(r => setTimeout(r, 2000));
+    if (stopped) return;
+    onStageChange?.("risk");
+    await new Promise(r => setTimeout(r, 1500));
+    if (stopped) return;
+  };
+  advanceStages();
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000); // 1 min
+
+    const res = await fetch(`${HF_URL}/analyze-text`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ text, user_id: String(userId) }),
+      signal:  controller.signal,
+    });
+
+    clearTimeout(timeout);
+    stopped = true;
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Analysis error ${res.status}`);
+    }
+
+    onStageChange?.("done");
+    return normalizeAIResult(await res.json());
+
+  } catch (err) {
+    stopped = true;
+    if (err.name === "AbortError")
+      throw new Error("Text analysis timed out — please try again.");
+    throw err;
+  }
+};
+
 // ── Normalise ML response → consistent internal shape ────────────────────────
 export const normalizeAIResult = (raw) => {
   const bm = raw.biomarkers || {};
   return {
     risk_tier: raw.risk_tier || "Green",
+    mode:      raw.mode      || "voice",
     biomarkers: {
       semantic_coherence:   bm.semantic_coherence   ?? null,
       lexical_diversity:    bm.lexical_diversity     ?? null,
@@ -109,7 +158,6 @@ export const normalizeAIResult = (raw) => {
       shimmer:              bm.shimmer               ?? null,
       hnr:                  bm.HNR                   ?? null,
       articulation_rate:    bm.articulation_rate     ?? null,
-      emotional_entropy:    bm.emotional_entropy      ?? null,
       filled_pause_rate:    bm.filled_pause_rate     ?? null,
     },
     anomaly_flags:        raw.anomaly_flags          || [],
@@ -139,7 +187,6 @@ export const saveSession = async (token, aiResult) => {
     hnr:                  bm.hnr                   ?? null,
     syntactic_complexity: bm.syntactic_complexity  ?? null,
     articulation_rate:    bm.articulation_rate     ?? null,
-    emotional_entropy:    bm.emotional_entropy      ?? null,
     has_anomaly:          (aiResult.anomaly_flags?.length ?? 0) > 0,
     anomaly_flags:        JSON.stringify(aiResult.anomaly_flags || []),
   };
