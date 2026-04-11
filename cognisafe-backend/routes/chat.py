@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
-MODEL        = "llama3-8b-8192"
+MODEL = "llama-3.3-70b-versatile"
 
 
 class Message(BaseModel):
