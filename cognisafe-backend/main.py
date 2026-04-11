@@ -2,10 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from models import User, Session  # noqa
-from routes import auth_router, sessions_router, users_router, reports_router
+from routes import auth_router, sessions_router, users_router, reports_router, chat_router
 from routes.ml import ml_router
-from routes import chat_router
-app.include_router(chat_router)
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,7 +31,6 @@ def seed_demo_user():
         db.delete(existing)
         db.commit()
         existing = None
-        
     if not existing:
         user = User(
             name="Arjun Sharma",
@@ -50,6 +47,7 @@ app.include_router(sessions_router)
 app.include_router(users_router)
 app.include_router(reports_router)
 app.include_router(ml_router)
+app.include_router(chat_router)
 
 @app.get("/")
 def root():
