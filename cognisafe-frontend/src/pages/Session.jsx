@@ -82,10 +82,14 @@ const LogoIcon = () => (
   </svg>
 );
 
-// ── RESULT MESSAGES ──
+// ── RESULT MESSAGES ── (fallbacks used only when API interpretation is missing)
 const GOOD_MSG  = (name) => `Your <b>semantic coherence</b> is above your personal baseline — clear, connected thinking today. <b>Excellent session, ${name}!</b> Let's meet again tomorrow.`;
 const WARN_MSG  = ()     => `Some language patterns were slightly varied today — possibly fatigue or stress. <b>Semantic coherence is holding steady</b>. Rest well and try again tomorrow.`;
 const BAD_MSG   = (name) => `We noticed some changes in your language patterns today, <b>${name}</b>. This can happen with fatigue or illness. You can <b>try again</b> to see if it improves, or rest and try tomorrow.`;
+
+// ── MOOD DISPLAY HELPERS ──
+const MOOD_EMOJI = { calm: "😌", stressed: "😰", sad: "😔", fatigued: "😴" };
+const MOOD_COLOR = { calm: "#4caf87", stressed: "#e5836a", sad: "#7a8fc4", fatigued: "#b07cc6" };
 
 // ── HELPERS ──
 const formatTime = (seconds) => {
@@ -403,6 +407,10 @@ const Session = () => {
             jitter:             0.008 + Math.random() * 0.008,
           },
           anomaly_flags: [],
+          mood: { label: "calm", confidence: 0.76 },
+          interpretation: "All cognitive markers are within normal range. Keep monitoring regularly.",
+          method: "xgboost_only",
+          session_count: 1,
         };
       } else if (audioBlob && audioBlob.size > 1000) {
         setAnalysisStage("uploading");
@@ -473,6 +481,10 @@ const Session = () => {
             jitter: null, shimmer: null, pitch_mean: null,
           },
           anomaly_flags: [],
+          mood: { label: "calm", confidence: 0.71 },
+          interpretation: "All cognitive markers are within normal range. Keep monitoring regularly.",
+          method: "xgboost_only",
+          session_count: 1,
         };
       } else {
         aiResult = await submitTextJob(typedText, user?.id || 1, (stage) => {
@@ -537,6 +549,9 @@ const Session = () => {
 
   const getMessage = () => {
     if (!result) return "";
+    // Use the AI-generated interpretation from the pipeline when available
+    if (result.interpretation) return result.interpretation;
+    // Fallback to hardcoded messages for demo mode
     if (result.risk_tier === "Green") return GOOD_MSG(userName);
     if (result.risk_tier === "Yellow") return WARN_MSG();
     return BAD_MSG(userName);
@@ -1089,6 +1104,85 @@ const Session = () => {
                 </>
               )}
             </div>
+
+            {/* ── Mood Context Card (only when API returns mood) ── */}
+            {result.mood && result.mood.label && (
+              <div className="mood-context-card" style={{
+                background: "var(--bg-card)",
+                border: `1.5px solid ${MOOD_COLOR[result.mood.label] || "#888"}40`,
+                borderLeft: `4px solid ${MOOD_COLOR[result.mood.label] || "#888"}`,
+                borderRadius: "14px",
+                padding: "16px 20px",
+                margin: "16px 0",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "14px",
+              }}>
+                <span style={{ fontSize: "28px", lineHeight: 1 }}>
+                  {MOOD_EMOJI[result.mood.label] || "🧠"}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: "10px",
+                    marginBottom: "6px", flexWrap: "wrap"
+                  }}>
+                    <span style={{
+                      fontWeight: 600, fontSize: "14px",
+                      color: "var(--text-primary)", textTransform: "capitalize"
+                    }}>
+                      Mood detected: {result.mood.label}
+                    </span>
+                    <span style={{
+                      fontSize: "11px", fontWeight: 600,
+                      padding: "2px 9px", borderRadius: "20px",
+                      background: `${MOOD_COLOR[result.mood.label] || "#888"}20`,
+                      color: MOOD_COLOR[result.mood.label] || "#888",
+                      textTransform: "uppercase", letterSpacing: "0.04em"
+                    }}>
+                      {Math.round((result.mood.confidence || 0) * 100)}% confidence
+                    </span>
+                  </div>
+                  <p style={{
+                    margin: 0, fontSize: "13px",
+                    color: "var(--text-secondary)", lineHeight: 1.55
+                  }}>
+                    {result.mood?.corrected
+                      ? "Mood was used as a correction factor — your score reflects cognitive patterns independent of your current emotional state."
+                      : "Mood is used as context — it does not directly determine your risk tier, but helps distinguish temporary emotional effects from persistent patterns."
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Model Method Badge ── */}
+            {result.method && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                marginBottom: "14px", flexWrap: "wrap"
+              }}>
+                <span style={{
+                  fontSize: "11px", padding: "3px 10px", borderRadius: "20px",
+                  background: "var(--bg-secondary)", color: "var(--text-secondary)",
+                  fontWeight: 500, letterSpacing: "0.03em"
+                }}>
+                  🔬 {result.method === "xgboost_only"
+                    ? "XGBoost only (early sessions)"
+                    : result.method === "hybrid_70_30"
+                    ? "Hybrid — 70% XGBoost / 30% personal baseline"
+                    : "Hybrid — 50% XGBoost / 50% personal baseline"}
+                </span>
+                {result.session_count && (
+                  <span style={{
+                    fontSize: "11px", padding: "3px 10px", borderRadius: "20px",
+                    background: "var(--bg-secondary)", color: "var(--text-secondary)",
+                    fontWeight: 500
+                  }}>
+                    Session #{result.session_count}
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="results-message" dangerouslySetInnerHTML={{ __html: getMessage() }} />
 
