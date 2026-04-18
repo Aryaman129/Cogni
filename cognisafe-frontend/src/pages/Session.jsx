@@ -1056,6 +1056,11 @@ const Session = () => {
               <div className="text-mode-badge">✍️ Text Mode — NLP biomarkers only</div>
             )}
 
+            {/* Hindi language badge */}
+            {result.biomarkers?.language_detected === "hi" && (
+              <div className="text-mode-badge">🇮🇳 Hindi session detected and analysed</div>
+            )}
+
             <div className="results-metrics">
               <div className="metric">
                 <span className="metric-label">Risk Score</span>
