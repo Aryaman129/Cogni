@@ -340,7 +340,8 @@ const Session = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SR) {
       const rec = new SR();
-      rec.continuous = true; rec.interimResults = true; rec.lang = "en-US";
+      rec.continuous = true; rec.interimResults = true;
+  r   rec.lang = navigator.language || "en-US"; // auto-detect browser language
       rec.onresult = (e) => {
         let t = "";
         for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
