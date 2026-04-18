@@ -20,7 +20,7 @@ export const checkToday = async (token) => {
 const blobToWav = async (blob) =>
   new File([blob], "recording.wav", { type: "audio/wav" });
 
-// ── Stage label map (for the progress bar UI) ───────────────
+// ── Stage label map (for the progress bar UI) ─────────────────────────────────
 export const STAGE_LABELS = {
   uploading:    "Uploading audio...",
   transcribing: "Transcribing speech (Whisper)...",
@@ -166,6 +166,11 @@ export const normalizeAIResult = (raw) => {
     processing_time:      raw.processing_time_seconds ?? null,
     user_id:              raw.user_id                || null,
     confidence_intervals: raw.confidence_intervals   || null,
+    mood:                 raw.mood                   || null,
+    interpretation:       raw.interpretation         || null,
+    method:               raw.method                 || null,
+    session_count:        raw.session_count          || null,
+    xgb:                  raw.xgb                    || null,
   };
 };
 
