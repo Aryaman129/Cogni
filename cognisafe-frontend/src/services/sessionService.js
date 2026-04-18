@@ -20,7 +20,7 @@ export const checkToday = async (token) => {
 const blobToWav = async (blob) =>
   new File([blob], "recording.wav", { type: "audio/wav" });
 
-// ── Stage label map (for the progress bar UI) ─────────────────────────────────
+// ── Stage label map (for the progress bar UI) ───────────────
 export const STAGE_LABELS = {
   uploading:    "Uploading audio...",
   transcribing: "Transcribing speech (Whisper)...",
