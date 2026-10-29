@@ -37,17 +37,24 @@ def get_weekly(
             avg_speech_rate=None,
             avg_pause_frequency=None,
             sessions_this_week=0,
-            risk_tier="Green",
+            risk_tier="Establishing Baseline",
         )
 
     avg_coherence = round(sum(s.semantic_coherence or 0 for s in sessions) / len(sessions), 2)
     avg_speech    = round(sum(s.speech_rate    or 0 for s in sessions) / len(sessions), 1)
     avg_pause     = round(sum(s.pause_frequency or 0 for s in sessions) / len(sessions), 2)
 
-    risk_counts = {"Green": 0, "Yellow": 0, "Red": 0}
+    risk_counts = {"Green": 0, "Yellow": 0, "Orange": 0, "Red": 0}
+    valid_risk_count = 0
     for s in sessions:
-        risk_counts[s.risk_tier] = risk_counts.get(s.risk_tier, 0) + 1
-    overall_risk = max(risk_counts, key=risk_counts.get)
+        if s.risk_tier and s.risk_tier in risk_counts:
+            risk_counts[s.risk_tier] += 1
+            valid_risk_count += 1
+
+    if valid_risk_count > 0:
+        overall_risk = max(risk_counts, key=risk_counts.get)
+    else:
+        overall_risk = "Establishing Baseline"
 
     narrative = (
         f"This week you completed {len(sessions)} session{'s' if len(sessions) > 1 else ''}. "
@@ -100,7 +107,8 @@ def get_trajectory(
 
     monthly: dict = {}
     for s in sessions:
-        key = s.recorded_at.strftime("%b")
+        # Group strictly by year-month to prevent multi-year collapse
+        key = s.recorded_at.strftime("%Y-%m")
         monthly.setdefault(key, []).append(score_session(s))
 
     return [

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 from database import get_db
 from models import User, Session
 from schemas import SessionCreate, SessionResponse, HistoryItem, TodayResponse
@@ -9,8 +9,10 @@ from dependencies import get_current_user
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
-def risk_to_status(risk: str) -> str:
-    return {"Green": "good", "Yellow": "warn", "Red": "bad"}.get(risk, "good")
+def risk_to_status(risk: Optional[str]) -> str:
+    if not risk:
+        return "info"
+    return {"Green": "good", "Yellow": "warn", "Orange": "warn", "Red": "bad"}.get(risk, "good")
 
 @router.post("", response_model=SessionResponse)
 def save_session(
@@ -18,7 +20,22 @@ def save_session(
     db:   DBSession = Depends(get_db),
     user: User      = Depends(get_current_user)
 ):
-    session = Session(user_id=user.id, **req.dict())
+    data = req.dict(exclude_unset=True)
+
+    # Normalize aliases for DB storage
+    if "pause_duration" in data and "pause_duration_mean" not in data:
+        data["pause_duration_mean"] = data.pop("pause_duration")
+    elif "pause_duration" in data:
+        data.pop("pause_duration")
+
+    if "HNR" in data and "hnr" not in data:
+        data["hnr"] = data.pop("HNR")
+    elif "HNR" in data:
+        data.pop("HNR")
+
+    data.pop("emotional_entropy", None)
+
+    session = Session(user_id=user.id, **data)
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -56,7 +73,7 @@ def get_latest(
         .first()
     )
     if not session:
-        raise HTTPException(status_code=404, detail="No sessions found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No sessions found")
     return session
 
 @router.get("/history", response_model=List[HistoryItem])
@@ -84,3 +101,19 @@ def get_history(
         )
         for s in sessions
     ]
+
+@router.get("/{session_id}", response_model=SessionResponse)
+def get_session(
+    session_id: int,
+    db:         DBSession = Depends(get_db),
+    user:       User      = Depends(get_current_user)
+):
+    session = db.query(Session).filter(Session.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    if session.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to view this session"
+        )
+    return session

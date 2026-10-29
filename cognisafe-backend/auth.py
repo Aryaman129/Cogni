@@ -1,13 +1,31 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import os
+import secrets
+import warnings
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret")
+# Require explicit SECRET_KEY; generate cryptographically secure random secret if unset and warn in production
+_env_secret = os.getenv("SECRET_KEY")
+_environment = os.getenv("ENVIRONMENT", os.getenv("ENV", "development")).lower()
+
+if not _env_secret:
+    if _environment in ("production", "prod"):
+        warnings.warn(
+            "CRITICAL SECURITY WARNING: SECRET_KEY environment variable is unset in production! "
+            "Generating temporary random ephemeral key. All sessions will invalidate on restart.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    # Generate cryptographically secure random secret for local development/testing
+    SECRET_KEY = secrets.token_hex(32)
+else:
+    SECRET_KEY = _env_secret
+
 ALGORITHM  = os.getenv("ALGORITHM", "HS256")
 EXPIRE_MIN = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 10080))
 

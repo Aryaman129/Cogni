@@ -13,4 +13,6 @@ class User(Base):
     dob           = Column(String, nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
 
-    sessions = relationship("Session", back_populates="user")
+    sessions         = relationship("Session", back_populates="user", cascade="all, delete-orphan")
+    jobs             = relationship("Job", back_populates="user", cascade="all, delete-orphan")
+    caregiver_shares = relationship("CaregiverShare", back_populates="patient", cascade="all, delete-orphan")
