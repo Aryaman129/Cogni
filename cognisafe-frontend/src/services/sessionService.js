@@ -1,165 +1,231 @@
-const API    = import.meta.env.VITE_API_URL    || "http://localhost:8000";
-const HF_URL = "https://alamfarzann-cognisafe-ml.hf.space";
+const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const authHeaders = (token) => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${token}`,
 });
 
+// Helper to obtain the active JWT token
+const getToken = (explicitToken) => {
+  if (typeof explicitToken === "string" && explicitToken.length > 20) {
+    return explicitToken;
+  }
+  return localStorage.getItem("cog_jwt") || "";
+};
+
 // ── Check if user already recorded today ──────────────────────────────────────
 export const checkToday = async (token) => {
+  const jwt = getToken(token);
   const res = await fetch(`${API}/api/sessions/today`, {
-    headers: authHeaders(token),
+    headers: authHeaders(jwt),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || "Failed to check today");
   return data;
 };
 
-// ── Convert audio blob → File named .wav ─────────────────────────────────────
+// ── Convert audio blob → File named recording.wav ─────────────────────────────
 const blobToWav = async (blob) =>
   new File([blob], "recording.wav", { type: "audio/wav" });
 
-// ── Stage label map (for the progress bar UI) ─────────────────────────────────
+// ── Stage label map (for progress bar UI) ─────────────────────────────────────
 export const STAGE_LABELS = {
   uploading:    "Uploading audio...",
+  queued:       "Queued for processing...",
+  processing:   "Processing audio stream...",
   transcribing: "Transcribing speech (Whisper)...",
   acoustic:     "Extracting acoustic features...",
   nlp:          "Analysing language patterns...",
-  risk:         "Computing risk tier...",
+  risk:         "Computing risk tier & baseline...",
   done:         "Analysis complete ✓",
+  failed:       "Analysis failed",
 };
 
 // Text mode stage labels
 export const TEXT_STAGE_LABELS = {
   nlp:  "Analysing language patterns...",
-  risk: "Computing risk tier...",
+  risk: "Computing risk tier & baseline...",
   done: "Analysis complete ✓",
 };
 
-export const STAGE_ORDER      = ["uploading", "transcribing", "acoustic", "nlp", "risk", "done"];
+export const STAGE_ORDER      = ["uploading", "processing", "transcribing", "acoustic", "nlp", "risk", "done"];
 export const TEXT_STAGE_ORDER = ["nlp", "risk", "done"];
 
-// ── Stage timings for voice mode progress simulation ─────────────────────────
-const STAGE_TIMINGS = [
-  { stage: "transcribing", delay: 20000 },
-  { stage: "acoustic",     delay: 15000 },
-  { stage: "nlp",          delay: 30000 },
-  { stage: "risk",         delay: 5000  },
-];
-
-// ── Submit audio DIRECTLY to HF Space ────────────────────────────────────────
-export const submitAudioJob = async (audioBlob, userId, onStageChange) => {
+// ── Submit audio to authenticated backend /api/ml/analyze & poll job status ───
+export const submitAudioJob = async (audioBlob, tokenOrUserId, onStageChange) => {
+  const jwt = getToken(tokenOrUserId);
   const formData = new FormData();
   const audioFile = await blobToWav(audioBlob);
-  formData.append("audio",   audioFile);
-  formData.append("user_id", String(userId));
+  formData.append("audio", audioFile);
 
-  let stopped = false;
-  const advanceStages = async () => {
-    for (const { stage, delay } of STAGE_TIMINGS) {
-      await new Promise(r => setTimeout(r, delay));
-      if (stopped) return;
-      onStageChange?.(stage);
-    }
-  };
-  advanceStages();
+  onStageChange?.("uploading");
 
+  // Step 1: Submit audio file to FastAPI backend
+  const uploadController = new AbortController();
+  const uploadTimeout = setTimeout(() => uploadController.abort(), 60000); // 1 min for upload
+
+  let initialRes;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 480000); // 8 min
+    const headers = {};
+    if (jwt) {
+      headers["Authorization"] = `Bearer ${jwt}`;
+    }
 
-    const res = await fetch(`${HF_URL}/analyze`, {
+    const res = await fetch(`${API}/api/ml/analyze`, {
       method: "POST",
-      body:   formData,
-      signal: controller.signal,
+      body: formData,
+      headers,
+      signal: uploadController.signal,
     });
-
-    clearTimeout(timeout);
-    stopped = true;
+    clearTimeout(uploadTimeout);
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `HF Space error ${res.status}`);
+      throw new Error(err.detail || `Upload error ${res.status}`);
     }
 
-    onStageChange?.("done");
-    return normalizeAIResult(await res.json());
-
+    initialRes = await res.json();
   } catch (err) {
-    stopped = true;
-    if (err.name === "AbortError")
-      throw new Error("Analysis timed out after 8 minutes — please try again.");
+    clearTimeout(uploadTimeout);
+    if (err.name === "AbortError") {
+      throw new Error("Audio upload timed out. Please check your connection.");
+    }
     throw err;
   }
+
+  const jobId = initialRes.job_id;
+  if (!jobId) {
+    throw new Error("Backend did not return a valid job ID.");
+  }
+
+  onStageChange?.("processing");
+
+  // Step 2: Poll real job status (/api/ml/status/{job_id}) without artificial delays
+  const pollIntervalMs = 1500;
+  const maxPollTimeMs = 480000; // 8 minutes
+  const startTime = Date.now();
+
+  return new Promise((resolve, reject) => {
+    const poll = async () => {
+      if (Date.now() - startTime > maxPollTimeMs) {
+        return reject(new Error("Analysis timed out after 8 minutes. Please try again."));
+      }
+
+      try {
+        const headers = {};
+        if (jwt) {
+          headers["Authorization"] = `Bearer ${jwt}`;
+        }
+
+        const res = await fetch(`${API}/api/ml/status/${jobId}`, {
+          method: "GET",
+          headers,
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return reject(new Error(err.detail || `Job status error ${res.status}`));
+        }
+
+        const data = await res.json();
+
+        // Update progress stage if reported
+        if (data.stage) {
+          onStageChange?.(data.stage);
+        } else if (data.status) {
+          onStageChange?.(data.status);
+        }
+
+        if (data.status === "done") {
+          onStageChange?.("done");
+          resolve(normalizeAIResult(data.result));
+        } else if (data.status === "failed") {
+          reject(new Error(data.error || "Speech biomarker analysis failed."));
+        } else {
+          // Job still queued or processing, schedule next poll
+          setTimeout(poll, pollIntervalMs);
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    setTimeout(poll, pollIntervalMs);
+  });
 };
 
-// ── Submit TEXT directly to HF Space (text mode for mute users) ───────────────
-export const submitTextJob = async (text, userId, onStageChange) => {
-  // Simulate NLP stage advancement — text analysis is fast (~3-5s total)
-  let stopped = false;
-  const advanceStages = async () => {
-    onStageChange?.("nlp");
-    await new Promise(r => setTimeout(r, 2000));
-    if (stopped) return;
-    onStageChange?.("risk");
-    await new Promise(r => setTimeout(r, 1500));
-    if (stopped) return;
-  };
-  advanceStages();
+// ── Submit TEXT to authenticated backend /api/ml/analyze-text ─────────────────
+export const submitTextJob = async (text, tokenOrUserId, onStageChange) => {
+  const jwt = getToken(tokenOrUserId);
+  onStageChange?.("nlp");
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000); // 1 min
 
-    const res = await fetch(`${HF_URL}/analyze-text`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ text, user_id: String(userId) }),
-      signal:  controller.signal,
+    const headers = { "Content-Type": "application/json" };
+    if (jwt) {
+      headers["Authorization"] = `Bearer ${jwt}`;
+    }
+
+    const res = await fetch(`${API}/api/ml/analyze-text`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
     });
 
     clearTimeout(timeout);
-    stopped = true;
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `Analysis error ${res.status}`);
+      throw new Error(err.detail || `Text analysis error ${res.status}`);
     }
 
+    onStageChange?.("risk");
+    const rawResult = await res.json();
     onStageChange?.("done");
-    return normalizeAIResult(await res.json());
+    return normalizeAIResult(rawResult);
 
   } catch (err) {
-    stopped = true;
-    if (err.name === "AbortError")
+    if (err.name === "AbortError") {
       throw new Error("Text analysis timed out — please try again.");
+    }
     throw err;
   }
 };
 
-// ── Normalise ML response → consistent internal shape ────────────────────────
+// ── Normalise ML response → consistent internal shape ─────────────────────────
+// Eliminates silent "Green" fallback; preserves explicit analysis_status and typed results
 export const normalizeAIResult = (raw) => {
+  if (!raw) return null;
   const bm = raw.biomarkers || {};
+
   return {
-    risk_tier: raw.risk_tier || "Green",
-    mode:      raw.mode      || "voice",
+    risk_tier:            raw.risk_tier !== undefined ? raw.risk_tier : null,
+    analysis_status:      raw.analysis_status || (raw.risk_tier ? "complete" : "insufficient_baseline"),
+    mode:                 raw.mode || "voice",
     biomarkers: {
-      semantic_coherence:   bm.semantic_coherence   ?? null,
-      lexical_diversity:    bm.lexical_diversity     ?? null,
-      idea_density:         bm.idea_density          ?? null,
-      syntactic_complexity: bm.syntactic_complexity  ?? null,
+      // 10 Acoustic Biomarkers
       speech_rate:          bm.speech_rate           ?? null,
+      articulation_rate:    bm.articulation_rate     ?? null,
       pause_frequency:      bm.pause_frequency       ?? null,
-      pause_duration:       bm.pause_duration_mean   ?? null,
+      pause_duration_mean:  bm.pause_duration_mean   ?? bm.pause_duration ?? null,
+      pause_duration:       bm.pause_duration_mean   ?? bm.pause_duration ?? null,
+      filled_pause_rate:    bm.filled_pause_rate     ?? null,
       pitch_mean:           bm.pitch_mean            ?? null,
       pitch_range:          bm.pitch_range           ?? null,
       jitter:               bm.jitter                ?? null,
       shimmer:              bm.shimmer               ?? null,
-      hnr:                  bm.HNR                   ?? null,
-      articulation_rate:    bm.articulation_rate     ?? null,
-      filled_pause_rate:    bm.filled_pause_rate     ?? null,
+      hnr:                  bm.HNR                   ?? bm.hnr ?? null,
+      HNR:                  bm.HNR                   ?? bm.hnr ?? null,
+      // 4 Linguistic / NLP Biomarkers
+      lexical_diversity:    bm.lexical_diversity     ?? null,
+      semantic_coherence:   bm.semantic_coherence   ?? null,
+      idea_density:         bm.idea_density          ?? null,
+      syntactic_complexity: bm.syntactic_complexity  ?? null,
     },
+    biomarker_results:    raw.biomarker_results      || raw.typed_features || null,
     anomaly_flags:        raw.anomaly_flags          || [],
     session_id:           raw.session_id             || null,
     timestamp:            raw.timestamp              || null,
@@ -170,37 +236,51 @@ export const normalizeAIResult = (raw) => {
     interpretation:       raw.interpretation         || null,
     method:               raw.method                 || null,
     session_count:        raw.session_count          || null,
-    xgb:                  raw.xgb                    || null,
+    ai_insights:          raw.ai_insights            || null,
   };
 };
 
-// ── Save AI result to Render backend ─────────────────────────────────────────
+// ── Save AI result to backend /api/sessions ──────────────────────────────────
+// Persists all 14 canonical biomarkers including filled_pause_rate and pause_duration_mean
 export const saveSession = async (token, aiResult) => {
+  const jwt = getToken(token);
   const bm = aiResult.biomarkers || {};
+
   const payload = {
-    risk_tier:            aiResult.risk_tier,
-    semantic_coherence:   bm.semantic_coherence   ?? null,
-    lexical_diversity:    bm.lexical_diversity     ?? null,
-    idea_density:         bm.idea_density          ?? null,
+    risk_tier:            aiResult.risk_tier ?? null,
+    analysis_status:      aiResult.analysis_status || "complete",
+    mode:                 aiResult.mode || "voice",
+    // 10 Acoustic Biomarkers
     speech_rate:          bm.speech_rate           ?? null,
+    articulation_rate:    bm.articulation_rate     ?? null,
     pause_frequency:      bm.pause_frequency       ?? null,
-    pause_duration:       bm.pause_duration        ?? null,
+    pause_duration_mean:  bm.pause_duration_mean   ?? bm.pause_duration ?? null,
+    pause_duration:       bm.pause_duration_mean   ?? bm.pause_duration ?? null,
+    filled_pause_rate:    bm.filled_pause_rate     ?? null,
     pitch_mean:           bm.pitch_mean            ?? null,
     pitch_range:          bm.pitch_range           ?? null,
     jitter:               bm.jitter                ?? null,
     shimmer:              bm.shimmer               ?? null,
-    hnr:                  bm.hnr                   ?? null,
+    hnr:                  bm.hnr                   ?? bm.HNR ?? null,
+    HNR:                  bm.HNR                   ?? bm.hnr ?? null,
+    // 4 Linguistic Biomarkers
+    lexical_diversity:    bm.lexical_diversity     ?? null,
+    semantic_coherence:   bm.semantic_coherence   ?? null,
+    idea_density:         bm.idea_density          ?? null,
     syntactic_complexity: bm.syntactic_complexity  ?? null,
-    articulation_rate:    bm.articulation_rate     ?? null,
+    // Anomaly flags & insights
     has_anomaly:          (aiResult.anomaly_flags?.length ?? 0) > 0,
     anomaly_flags:        JSON.stringify(aiResult.anomaly_flags || []),
+    biomarker_results:    aiResult.biomarker_results || null,
+    ai_insights:          aiResult.ai_insights || (aiResult.interpretation ? { narrative: aiResult.interpretation } : null),
   };
 
   const res = await fetch(`${API}/api/sessions`, {
     method:  "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: authHeaders(jwt),
     body:    JSON.stringify(payload),
   });
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || "Failed to save session");
   return data;

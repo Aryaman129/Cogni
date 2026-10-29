@@ -3,50 +3,65 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
 
 /* ═══════ THEME VARIABLES ═══════ */
+:root {
+  --navy: #0A1628;
+  --amber: #E8A020;
+  --navy-surface: #102038;
+  --off-white: #F4F6FA;
+}
+
 .dashboard.light {
-  --bg-primary: #FEF9F5;
+  --navy: #0A1628;
+  --amber: #E8A020;
+  --navy-surface: #102038;
+  --off-white: #F4F6FA;
+  --bg-primary: #F4F6FA;
   --bg-secondary: #FFFFFF;
-  --bg-tertiary: #FFF5F0;
+  --bg-tertiary: #EAEFF7;
   --bg-card: #FFFFFF;
-  --bg-hover: #FEF0E8;
-  --text-primary: #2D1B2A;
-  --text-secondary: #6B4F63;
-  --text-tertiary: #A08898;
-  --border: rgba(155, 79, 122, 0.12);
-  --border-hover: rgba(155, 79, 122, 0.25);
-  --shadow: 0 4px 20px rgba(46, 21, 37, 0.06);
-  --shadow-lg: 0 8px 32px rgba(46, 21, 37, 0.1);
-  --shadow-hover: 0 12px 40px rgba(155, 79, 122, 0.12);
-  --accent-primary: #D4A5B5;
-  --accent-secondary: #B5689A;
-  --accent-glow: rgba(212, 165, 181, 0.4);
-  --success: #7FB77E;
-  --warning: #E5B56A;
-  --danger: #E58383;
-  --info: #9B8EC0;
+  --bg-hover: #EEF2F8;
+  --text-primary: #0A1628;
+  --text-secondary: #334E68;
+  --text-tertiary: #627D98;
+  --border: rgba(10, 22, 40, 0.1);
+  --border-hover: rgba(232, 160, 32, 0.4);
+  --shadow: 0 4px 20px rgba(10, 22, 40, 0.06);
+  --shadow-lg: 0 8px 32px rgba(10, 22, 40, 0.1);
+  --shadow-hover: 0 12px 40px rgba(10, 22, 40, 0.12);
+  --accent-primary: #E8A020;
+  --accent-secondary: #0A1628;
+  --accent-glow: rgba(232, 160, 32, 0.35);
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
 }
 
 .dashboard.dark {
-  --bg-primary: #0F0A0E;
-  --bg-secondary: #1A1218;
-  --bg-tertiary: #221A20;
-  --bg-card: #1A1218;
-  --bg-hover: #2A1F26;
-  --text-primary: #F5EAF0;
-  --text-secondary: #C09AB0;
-  --text-tertiary: #8A6A7A;
-  --border: rgba(212, 165, 181, 0.12);
-  --border-hover: rgba(212, 165, 181, 0.25);
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-hover: 0 12px 40px rgba(212, 165, 181, 0.1);
-  --accent-primary: #D4A5B5;
-  --accent-secondary: #E2BBCB;
-  --accent-glow: rgba(212, 165, 181, 0.3);
-  --success: #8FCB8E;
-  --warning: #F0C674;
-  --danger: #F09C9C;
-  --info: #B5A8D0;
+  --navy: #0A1628;
+  --amber: #E8A020;
+  --navy-surface: #102038;
+  --off-white: #F4F6FA;
+  --bg-primary: #0A1628;
+  --bg-secondary: #102038;
+  --bg-tertiary: #172A45;
+  --bg-card: #102038;
+  --bg-hover: #192D4A;
+  --text-primary: #F4F6FA;
+  --text-secondary: #9FB3C8;
+  --text-tertiary: #627D98;
+  --border: rgba(244, 246, 250, 0.1);
+  --border-hover: rgba(232, 160, 32, 0.45);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-hover: 0 12px 40px rgba(232, 160, 32, 0.15);
+  --accent-primary: #E8A020;
+  --accent-secondary: #F6C163;
+  --accent-glow: rgba(232, 160, 32, 0.4);
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #60A5FA;
 }
 
 /* ═══════ BASE STYLES ═══════ */
@@ -294,12 +309,48 @@
   color: var(--warning);
 }
 
+.risk-chip.orange {
+  border-left: 3px solid #F97316;
+  color: #F97316;
+}
+
+.risk-chip.red {
+  border-left: 3px solid var(--danger);
+  color: var(--danger);
+}
+
+.risk-chip.baseline {
+  border-left: 3px solid var(--amber);
+  color: var(--amber);
+  background: rgba(232, 160, 32, 0.12);
+}
+
+.risk-chip.insufficient {
+  border-left: 3px solid #94A3B8;
+  color: #94A3B8;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.risk-chip.unavailable {
+  border-left: 3px solid #64748B;
+  color: #64748B;
+  background: rgba(100, 116, 139, 0.12);
+}
+
 .risk-pulse {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: currentColor;
   animation: pulse 1.5s infinite;
+}
+
+.risk-pulse.neutral {
+  background: var(--amber);
+}
+
+.risk-pulse.warn {
+  background: #F59E0B;
 }
 
 @keyframes pulse {
@@ -521,6 +572,18 @@
 
 .chart-point.yellow {
   fill: var(--warning);
+}
+
+.chart-point.orange {
+  fill: #F97316;
+}
+
+.chart-point.red {
+  fill: var(--danger);
+}
+
+.chart-point.baseline {
+  fill: var(--amber);
 }
 
 .chart-point-hover {
@@ -777,6 +840,69 @@
   background: linear-gradient(90deg, var(--warning), #F5D48A);
 }
 
+.progress-fill.danger {
+  background: linear-gradient(90deg, var(--danger), #F87171);
+}
+
+.progress-fill.insufficient,
+.progress-fill.failed,
+.progress-fill.neutral {
+  background: var(--text-tertiary);
+}
+
+.biomarker-status.danger {
+  background: var(--danger);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+}
+
+.biomarker-status.insufficient,
+.biomarker-status.failed {
+  background: #94A3B8;
+  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.3);
+}
+
+.biomarker-status.unsupported,
+.biomarker-status.neutral {
+  background: var(--amber);
+  box-shadow: 0 0 0 2px rgba(232, 160, 32, 0.3);
+}
+
+.biomarker-card.card-insufficient,
+.biomarker-card.card-failed,
+.biomarker-card.card-unsupported {
+  opacity: 0.88;
+  border-style: dashed;
+  background: var(--bg-hover);
+}
+
+.biomarker-typed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(232, 160, 32, 0.12);
+  color: var(--amber);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.biomarker-reason-text {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.proxy-indicator {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--amber);
+  margin-left: 6px;
+  opacity: 0.9;
+}
+
 /* ═══════ QUICK ACTIONS ═══════ */
 .quick-actions {
   display: flex;
@@ -895,13 +1021,38 @@
 }
 
 .modal-tier.tier-green {
-  background: rgba(127, 183, 126, 0.1);
+  background: rgba(16, 185, 129, 0.12);
   color: var(--success);
 }
 
 .modal-tier.tier-yellow {
-  background: rgba(229, 181, 106, 0.1);
+  background: rgba(245, 158, 11, 0.12);
   color: var(--warning);
+}
+
+.modal-tier.tier-orange {
+  background: rgba(249, 115, 22, 0.12);
+  color: #F97316;
+}
+
+.modal-tier.tier-red {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+}
+
+.modal-tier.tier-baseline {
+  background: rgba(232, 160, 32, 0.12);
+  color: var(--amber);
+}
+
+.modal-tier.tier-insufficient {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94A3B8;
+}
+
+.modal-tier.tier-unavailable {
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748B;
 }
 
 .modal-date {

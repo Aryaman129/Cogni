@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getLatestSession, getTrajectory } from "../services/dashboardService";
+import { getLatestSession, getTrajectory, getSessionHistory } from "../services/dashboardService";
+import SemanticSphere from "../components/SemanticSphere";
 import "../styles/brain.css";
 
 // ── STATIC DATA (used as fallback if API unavailable) ──
@@ -37,10 +38,11 @@ const BIOMARKER_TO_REGION = {
   speech_rate:          [3],        // Broca's
   pause_frequency:      [3],        // Broca's
   pause_duration:       [5],        // Cerebellum
+  pause_duration_mean:  [5],        // Cerebellum
+  filled_pause_rate:    [3],        // Broca's (speech disfluency)
   pitch_mean:           [5],        // Cerebellum
   articulation_rate:    [5],        // Cerebellum
   syntactic_complexity: [0, 1],     // Prefrontal + Temporal
-  emotional_entropy:    [2],        // Parietal
 };
 
 const ANOMALIES_STATIC = [
@@ -319,6 +321,8 @@ const Brain = () => {
   const [regions, setRegions]     = useState(isDemo ? REGIONS : REGIONS_EMPTY);
   const [anomalies, setAnomalies] = useState(ANOMALIES_STATIC);
   const [latestSession, setLatestSession] = useState(null);
+  const [history, setHistory]     = useState([]);
+  const [viewMode, setViewMode]   = useState("heatmap"); // "heatmap" (2D) or "sphere" (3D)
   const [fetching, setFetching]   = useState(true);
 
   const toggleDark = () => {
@@ -329,14 +333,22 @@ const Brain = () => {
 
   // ── Fetch real data ──
   useEffect(() => {
-    if (!token) { setFetching(false); return; }
+    if (!token && !isDemo) { setFetching(false); return; }
 
     const fetchAll = async () => {
       try {
-        const [traj, latest] = await Promise.all([
-          getTrajectory(token, 6),
-          getLatestSession(token),
+        const [traj, latest, hist] = await Promise.all([
+          getTrajectory(token, 6).catch(() => []),
+          getLatestSession(token).catch(() => null),
+          getSessionHistory(token, 3).catch(() => []),
         ]);
+
+        const demoHistory = [
+          { transcript: "I had a wonderful walk in the sunny garden this morning. My memory is sharp and thinking is clear.", date: "Oct 28", risk_tier: "Green" },
+          { transcript: "My daily routine keeps my memory and mind focused. Family and friends came over yesterday for coffee and stories.", date: "Oct 29", risk_tier: "Green" },
+          { transcript: "Speech and language flow smoothly during our routine morning walk.", date: "Oct 30", risk_tier: "Green" },
+        ];
+        setHistory(isDemo ? demoHistory : (hist || []));
 
         // Update trajectory chart
         if (traj && traj.length > 0 && !isDemo) {
@@ -553,29 +565,73 @@ const Brain = () => {
         {/* ── MAIN GRID ── */}
         <div className="brain-main">
 
-          {/* LEFT — BRAIN MAP + REGION LIST */}
+          {/* LEFT — BRAIN MAP / 3D DRIFT SPHERE + REGION LIST */}
           <div className="b-card">
-            <div className="b-card-title">Neural heatmap</div>
-            <div className="b-card-sub">{cardSubText}</div>
-
-            {/* Brain canvas with tooltip */}
-            <div style={{ position: "relative" }}>
-              <BrainCanvas
-                dark={dark}
-                selected={selected}
-                onSelect={setSelected}
-                onHover={handleHover}
-              />
-              {hovered !== null && (
-                <div className="brain-tooltip" style={{
-                  left: tooltipPos.x,
-                  top:  tooltipPos.y,
-                  opacity: 1,
-                }}>
-                  {regions[hovered].name} lobe: {regions[hovered].score}/100
-                </div>
-              )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+              <div>
+                <div className="b-card-title">{viewMode === "heatmap" ? "Neural heatmap" : "3D Semantic Drift Sphere"}</div>
+                <div className="b-card-sub">{viewMode === "heatmap" ? cardSubText : "Interactive 3D vocabulary drift visualization"}</div>
+              </div>
+              <div style={{ display: "flex", gap: "6px", background: dark ? "rgba(16, 32, 56, 0.7)" : "rgba(10, 22, 40, 0.05)", padding: "4px", borderRadius: "30px", border: "1px solid var(--border)" }}>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("heatmap")}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: "20px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    background: viewMode === "heatmap" ? "var(--amber, #E8A020)" : "transparent",
+                    color: viewMode === "heatmap" ? "#0A1628" : "inherit",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  🧠 2D Heatmap
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("sphere")}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: "20px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    background: viewMode === "sphere" ? "var(--amber, #E8A020)" : "transparent",
+                    color: viewMode === "sphere" ? "#0A1628" : "inherit",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  🌐 3D Drift Sphere
+                </button>
+              </div>
             </div>
+
+            {/* View container: 2D Brain Canvas or 3D Semantic Drift Sphere */}
+            {viewMode === "heatmap" ? (
+              <div style={{ position: "relative" }}>
+                <BrainCanvas
+                  dark={dark}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onHover={handleHover}
+                />
+                {hovered !== null && (
+                  <div className="brain-tooltip" style={{
+                    left: tooltipPos.x,
+                    top:  tooltipPos.y,
+                    opacity: 1,
+                  }}>
+                    {regions[hovered].name} lobe: {regions[hovered].score}/100
+                  </div>
+                )}
+              </div>
+            ) : (
+              <SemanticSphere sessions={history} dark={dark} />
+            )}
 
             {/* Region list */}
             <div className="region-list">

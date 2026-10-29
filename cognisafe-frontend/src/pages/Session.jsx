@@ -416,7 +416,7 @@ const Session = () => {
       } else if (audioBlob && audioBlob.size > 1000) {
         setAnalysisStage("uploading");
         setProgress(8);
-        aiResult = await submitAudioJob(audioBlob, user?.id || 1, (stage) => {
+        aiResult = await submitAudioJob(audioBlob, token || user?.id || 1, (stage) => {
           setAnalysisStage(stage);
           const idx = STAGE_ORDER.indexOf(stage);
           setProgress(idx >= 0 ? 10 + Math.round((idx / (STAGE_ORDER.length - 1)) * 85) : 10);
@@ -425,17 +425,27 @@ const Session = () => {
         setAnalysisStage("done");
         setProgress(100);
         aiResult = {
-          risk_tier: "Green",
+          risk_tier: null,
+          analysis_status: "insufficient_data",
           mode: "voice",
           biomarkers: {
-            semantic_coherence: Number((0.80 + Math.random() * 0.1).toFixed(2)),
-            lexical_diversity:  Number((0.70 + Math.random() * 0.1).toFixed(2)),
-            speech_rate:        Math.floor(115 + Math.random() * 15),
-            pause_frequency:    Number((2.0  + Math.random() * 1.5).toFixed(1)),
-            hnr:                Number((18.0 + Math.random() * 2.0).toFixed(1)),
-            jitter:             Number((0.009 + Math.random() * 0.004).toFixed(3)),
+            semantic_coherence: null,
+            lexical_diversity:  null,
+            speech_rate:        null,
+            pause_frequency:    null,
+            pause_duration_mean: null,
+            filled_pause_rate:  null,
+            hnr:                null,
+            jitter:             null,
+            shimmer:            null,
+            pitch_mean:         null,
+            pitch_range:        null,
+            articulation_rate:  null,
+            idea_density:       null,
+            syntactic_complexity: null,
           },
           anomaly_flags: [],
+          interpretation: "Audio recording was insufficient or too short to extract reliable biomarkers. Please record for at least 30 seconds in a quiet room.",
         };
       }
 
@@ -488,7 +498,7 @@ const Session = () => {
           session_count: 1,
         };
       } else {
-        aiResult = await submitTextJob(typedText, user?.id || 1, (stage) => {
+        aiResult = await submitTextJob(typedText, token || user?.id || 1, (stage) => {
           setAnalysisStage(stage);
           const idx = TEXT_STAGE_ORDER.indexOf(stage);
           setProgress(idx >= 0 ? 20 + Math.round((idx / (TEXT_STAGE_ORDER.length - 1)) * 75) : 20);
@@ -542,8 +552,9 @@ const Session = () => {
 
   // ── Result helpers ──
   const userName      = user?.name?.split(" ")[0] || "there";
-  const canRetry      = result && result.risk_tier !== "Green";
-  const riskBadgeClass = !result ? "rb-green"
+  const canRetry      = result && (result.risk_tier !== "Green" || result.analysis_status === "insufficient_data");
+  const riskBadgeClass = !result ? "rb-baseline"
+    : !result.risk_tier ? (result.analysis_status === "insufficient_data" ? "rb-insufficient" : "rb-baseline")
     : result.risk_tier === "Green" ? "rb-green"
     : result.risk_tier === "Yellow" ? "rb-yellow"
     : "rb-red";
@@ -1048,7 +1059,7 @@ const Session = () => {
             <div className="results-header">
               <h3>Session Results</h3>
               <div className={`results-badge ${riskBadgeClass}`}>
-                ● {result.risk_tier} — {result.risk_tier === "Green" ? "Good" : result.risk_tier === "Yellow" ? "Watch" : "Alert"}
+                ● {result.risk_tier ? `${result.risk_tier} — ${result.risk_tier === "Green" ? "Good" : result.risk_tier === "Yellow" ? "Watch" : "Alert"}` : (result.analysis_status === "insufficient_data" ? "Insufficient Data" : "Establishing Baseline")}
               </div>
             </div>
 
@@ -1066,7 +1077,7 @@ const Session = () => {
               <div className="metric">
                 <span className="metric-label">Risk Score</span>
                 <span className="metric-value">
-                  {result.risk_tier === "Green" ? "0.18" : result.risk_tier === "Yellow" ? "0.35" : "0.52"}
+                  {result.risk_tier === "Green" ? "0.18" : result.risk_tier === "Yellow" ? "0.35" : result.risk_tier ? "0.52" : "—"}
                 </span>
               </div>
               <div className="metric">
@@ -1105,6 +1116,27 @@ const Session = () => {
                     <span className="metric-value">
                       {result.biomarkers?.pause_frequency != null
                         ? `${result.biomarkers.pause_frequency.toFixed(1)}/min` : "—"}
+                    </span>
+                  </div>
+                  <div className="metric">
+                    <span className="metric-label">Filled Pause Rate</span>
+                    <span className="metric-value">
+                      {result.biomarkers?.filled_pause_rate != null
+                        ? `${result.biomarkers.filled_pause_rate.toFixed(1)}/min` : "—"}
+                    </span>
+                  </div>
+                  <div className="metric">
+                    <span className="metric-label">Pause Duration</span>
+                    <span className="metric-value">
+                      {result.biomarkers?.pause_duration_mean != null || result.biomarkers?.pause_duration != null
+                        ? `${(result.biomarkers.pause_duration_mean ?? result.biomarkers.pause_duration).toFixed(2)}s` : "—"}
+                    </span>
+                  </div>
+                  <div className="metric">
+                    <span className="metric-label">HNR</span>
+                    <span className="metric-value">
+                      {result.biomarkers?.hnr != null || result.biomarkers?.HNR != null
+                        ? `${(result.biomarkers.hnr ?? result.biomarkers.HNR).toFixed(1)} dB` : "—"}
                     </span>
                   </div>
                 </>

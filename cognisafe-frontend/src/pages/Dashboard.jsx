@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getProfile, getSessionHistory, getLatestSession, getWeeklyReport, getTrajectory } from "../services/dashboardService";
+import BiomarkerCard from "../components/BiomarkerCard";
 import "../styles/dashboard.css";
 
 // ── ANIMATED SVG COMPONENTS ──
@@ -63,14 +64,22 @@ const ProgressRing = ({ value, size = 80, strokeWidth = 6, color }) => {
 const SessionDetailModal = ({ session, onClose }) => {
   if (!session) return null;
 
+  const modalTierClass = session.risk_tier
+    ? `tier-${session.risk_tier.toLowerCase()}`
+    : (session.analysis_status === "insufficient_data" ? "tier-insufficient" : "tier-baseline");
+
+  const modalTierLabel = session.risk_tier
+    ? `${session.risk_tier} Risk`
+    : (session.analysis_status === "insufficient_data" ? "Insufficient Data" : "Establishing Baseline");
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
         <div className="modal-header">
-          <div className={`modal-tier tier-${session.risk_tier?.toLowerCase() || 'green'}`}>
+          <div className={`modal-tier ${modalTierClass}`}>
             <span className="tier-dot"></span>
-            {session.risk_tier || 'Green'} Risk
+            {modalTierLabel}
           </div>
           <div className="modal-date">{session.date}</div>
         </div>
@@ -79,12 +88,12 @@ const SessionDetailModal = ({ session, onClose }) => {
         <div className="modal-stats">
           <div className="modal-stat">
             <span className="stat-label">Risk Score</span>
-            <span className="stat-value">{session.score?.toFixed(2) || '—'}</span>
+            <span className="stat-value">{session.score != null ? session.score.toFixed(2) : '—'}</span>
             <span className="stat-unit">/ 1.0</span>
           </div>
           <div className="modal-stat">
             <span className="stat-label">Semantic Coherence</span>
-            <span className="stat-value">{session.semantic_coherence?.toFixed(2) || '—'}</span>
+            <span className="stat-value">{session.semantic_coherence != null ? session.semantic_coherence.toFixed(2) : '—'}</span>
           </div>
           <div className="modal-stat">
             <span className="stat-label">Speech Rate</span>
@@ -98,19 +107,27 @@ const SessionDetailModal = ({ session, onClose }) => {
           <div className="biomarkers-list">
             <div className="biomarker-row">
               <span>Lexical Diversity</span>
-              <span>{session.lexical_diversity?.toFixed(2) || '—'}</span>
+              <span>{session.lexical_diversity != null ? session.lexical_diversity.toFixed(2) : '—'}</span>
             </div>
             <div className="biomarker-row">
               <span>Pause Frequency</span>
-              <span>{session.pause_frequency?.toFixed(1) || '—'} /min</span>
+              <span>{session.pause_frequency != null ? `${session.pause_frequency.toFixed(1)} /min` : '—'}</span>
+            </div>
+            <div className="biomarker-row">
+              <span>Pause Duration</span>
+              <span>{(session.pause_duration_mean ?? session.pause_duration) != null ? `${(session.pause_duration_mean ?? session.pause_duration).toFixed(2)}s` : '—'}</span>
+            </div>
+            <div className="biomarker-row">
+              <span>Filled Pause Rate</span>
+              <span>{session.filled_pause_rate != null ? `${session.filled_pause_rate.toFixed(1)} /min` : '—'}</span>
             </div>
             <div className="biomarker-row">
               <span>HNR</span>
-              <span>{session.hnr?.toFixed(1) || '—'} dB</span>
+              <span>{(session.hnr ?? session.HNR) != null ? `${(session.hnr ?? session.HNR).toFixed(1)} dB` : '—'}</span>
             </div>
             <div className="biomarker-row">
               <span>Jitter</span>
-              <span>{session.jitter ? (session.jitter * 100).toFixed(1) : '—'}%</span>
+              <span>{session.jitter != null ? `${(session.jitter * 100).toFixed(1)}%` : '—'}</span>
             </div>
           </div>
         </div>
@@ -122,23 +139,6 @@ const SessionDetailModal = ({ session, onClose }) => {
     </div>
   );
 };
-
-// ── BIOMARKER CARD ──
-const BiomarkerCard = ({ name, value, status, trend }) => (
-  <div className="biomarker-card">
-    <div className="biomarker-header">
-      <span className="biomarker-name">{name}</span>
-      <span className={`biomarker-status ${status}`}></span>
-    </div>
-    <div className="biomarker-value">{value || '—'}</div>
-    <div className={`biomarker-trend ${trend?.type || 'flat'}`}>
-      {trend?.arrow || '●'} {trend?.text || 'Stable'}
-    </div>
-    <div className="biomarker-progress">
-      <div className={`progress-fill ${status}`} style={{ width: `${trend?.percentage || 50}%` }} />
-    </div>
-  </div>
-);
 
 // ── DEMO DATA GENERATOR ──
 const generateDemoData = () => {
@@ -170,33 +170,42 @@ const generateDemoData = () => {
       fullDate: date.toLocaleDateString(),
       score: score,
       risk_tier: tier,
+      analysis_status: "complete",
       semantic_coherence: 0.75 + (1 - score) * 0.2 + (Math.random() - 0.5) * 0.05,
       lexical_diversity: 0.68 + (1 - score) * 0.1 + (Math.random() - 0.5) * 0.04,
       speech_rate: 110 + (1 - score) * 20 + (Math.random() - 0.5) * 8,
+      articulation_rate: 4.8 + (1 - score) * 0.8 + (Math.random() - 0.5) * 0.3,
       pause_frequency: 4.2 - (1 - score) * 2 + (Math.random() - 0.5) * 0.5,
+      pause_duration_mean: 0.45 - (1 - score) * 0.1 + (Math.random() - 0.5) * 0.04,
+      filled_pause_rate: 1.6 - (1 - score) * 0.8 + (Math.random() - 0.5) * 0.3,
+      pitch_mean: 142 + (Math.random() - 0.5) * 10,
+      pitch_range: 65 + (Math.random() - 0.5) * 8,
       hnr: 16 + (1 - score) * 4 + (Math.random() - 0.5) * 1.5,
       jitter: 0.012 - (1 - score) * 0.006 + (Math.random() - 0.5) * 0.002,
+      shimmer: 0.035 - (1 - score) * 0.01 + (Math.random() - 0.5) * 0.004,
+      idea_density: 0.42 + (1 - score) * 0.1 + (Math.random() - 0.5) * 0.03,
+      syntactic_complexity: 0.65 + (1 - score) * 0.15 + (Math.random() - 0.5) * 0.04,
     };
   });
 
   const latestSession = sessions[sessions.length - 1];
 
-  // Generate biomarkers based on latest session
+  // 14 Canonical Biomarkers based on latest session
   const biomarkers = [
-    { name: "Semantic Coherence", value: latestSession.semantic_coherence.toFixed(2), status: latestSession.semantic_coherence > 0.85 ? "good" : "warning", trend: { type: "up", arrow: "▲", text: "+2.1%", percentage: (latestSession.semantic_coherence * 100) } },
-    { name: "Lexical Diversity", value: latestSession.lexical_diversity.toFixed(2), status: latestSession.lexical_diversity > 0.72 ? "good" : "warning", trend: { type: latestSession.lexical_diversity > 0.72 ? "up" : "down", arrow: latestSession.lexical_diversity > 0.72 ? "▲" : "▼", text: latestSession.lexical_diversity > 0.72 ? "+0.8%" : "-0.5%", percentage: latestSession.lexical_diversity * 100 } },
     { name: "Speech Rate", value: Math.round(latestSession.speech_rate) + " wpm", status: latestSession.speech_rate > 115 ? "good" : "warning", trend: { type: "up", arrow: "▲", text: "+1.2%", percentage: Math.min(100, (latestSession.speech_rate / 140) * 100) } },
+    { name: "Articulation Rate", value: latestSession.articulation_rate.toFixed(1) + " syl/s", status: "good", trend: { type: "up", arrow: "▲", text: "+0.3%", percentage: 68 } },
     { name: "Pause Frequency", value: latestSession.pause_frequency.toFixed(1) + "/min", status: latestSession.pause_frequency < 3.5 ? "good" : "warning", trend: { type: latestSession.pause_frequency < 3.5 ? "down" : "up", arrow: latestSession.pause_frequency < 3.5 ? "▼" : "▲", text: latestSession.pause_frequency < 3.5 ? "-5.2%" : "+3.1%", percentage: Math.min(100, (latestSession.pause_frequency / 6) * 100) } },
-    { name: "Pitch Mean", value: "142 Hz", status: "good", trend: { type: "up", arrow: "▲", text: "+0.6%", percentage: 72 } },
-    { name: "HNR", value: latestSession.hnr.toFixed(1) + " dB", status: latestSession.hnr > 18 ? "good" : "warning", trend: { type: "up", arrow: "▲", text: "+1.8%", percentage: (latestSession.hnr / 25) * 100 } },
-    { name: "Articulation Rate", value: "5.1 syl/s", status: "good", trend: { type: "up", arrow: "▲", text: "+0.3%", percentage: 68 } },
-    { name: "Jitter", value: (latestSession.jitter * 100).toFixed(1) + "%", status: latestSession.jitter < 0.01 ? "good" : "warning", trend: { type: "down", arrow: "▼", text: "-0.4%", percentage: 80 } },
-    { name: "Shimmer", value: "3.2%", status: "good", trend: { type: "up", arrow: "▲", text: "+0.2%", percentage: 75 } },
-    { name: "Idea Density", value: "0.44", status: "good", trend: { type: "up", arrow: "▲", text: "+1.2%", percentage: 60 } },
-    { name: "Syntactic Complexity", value: "0.68", status: "good", trend: { type: "up", arrow: "▲", text: "+0.9%", percentage: 68 } },
-    { name: "Pitch Range", value: "64 Hz", status: "warning", trend: { type: "down", arrow: "▼", text: "-2.3%", percentage: 55 } },
-    { name: "Pause Duration", value: "0.42s", status: "good", trend: { type: "down", arrow: "▼", text: "-1.1%", percentage: 65 } },
-    { name: "Emotional Entropy", value: "0.65", status: "good", trend: { type: "up", arrow: "▲", text: "+1.2%", percentage: 70 } },
+    { name: "Pause Duration", value: latestSession.pause_duration_mean.toFixed(2) + "s", status: "good", trend: { type: "down", arrow: "▼", text: "-1.1%", percentage: 65 } },
+    { name: "Filled Pause Rate", value: latestSession.filled_pause_rate.toFixed(1) + "/min", status: latestSession.filled_pause_rate < 2.0 ? "good" : "warning", trend: { type: "down", arrow: "▼", text: "Optimal", percentage: 70 } },
+    { name: "Pitch Mean", value: Math.round(latestSession.pitch_mean) + " Hz", status: "good", trend: { type: "up", arrow: "▲", text: "+0.6%", percentage: 72 } },
+    { name: "Pitch Range", value: Math.round(latestSession.pitch_range) + " Hz", status: latestSession.pitch_range > 55 ? "good" : "warning", trend: { type: "down", arrow: "▼", text: "-2.3%", percentage: 55 } },
+    { name: "Jitter", value: (latestSession.jitter * 100).toFixed(1) + "%", status: latestSession.jitter < 0.01 ? "good" : "warning", trend: { type: "down", arrow: "▼", text: "-0.4%", percentage: 80 }, isProxy: true },
+    { name: "Shimmer", value: (latestSession.shimmer * 100).toFixed(1) + "%", status: "good", trend: { type: "up", arrow: "▲", text: "+0.2%", percentage: 75 }, isProxy: true },
+    { name: "HNR", value: latestSession.hnr.toFixed(1) + " dB", status: latestSession.hnr > 18 ? "good" : "warning", trend: { type: "up", arrow: "▲", text: "+1.8%", percentage: (latestSession.hnr / 25) * 100 }, isProxy: true },
+    { name: "Lexical Diversity", value: latestSession.lexical_diversity.toFixed(2), status: latestSession.lexical_diversity > 0.72 ? "good" : "warning", trend: { type: latestSession.lexical_diversity > 0.72 ? "up" : "down", arrow: latestSession.lexical_diversity > 0.72 ? "▲" : "▼", text: latestSession.lexical_diversity > 0.72 ? "+0.8%" : "-0.5%", percentage: latestSession.lexical_diversity * 100 } },
+    { name: "Semantic Coherence", value: latestSession.semantic_coherence.toFixed(2), status: latestSession.semantic_coherence > 0.85 ? "good" : "warning", trend: { type: "up", arrow: "▲", text: "+2.1%", percentage: (latestSession.semantic_coherence * 100) } },
+    { name: "Idea Density", value: latestSession.idea_density.toFixed(2), status: "good", trend: { type: "up", arrow: "▲", text: "+1.2%", percentage: 60 } },
+    { name: "Syntactic Complexity", value: latestSession.syntactic_complexity.toFixed(2), status: "good", trend: { type: "up", arrow: "▲", text: "+0.9%", percentage: 68 } },
   ];
 
   return { sessions, latestSession, biomarkers };
@@ -287,7 +296,8 @@ const Dashboard = () => {
   const displayNarrative = isDemo ? "Your cognitive health is showing consistent improvement across all metrics. Semantic coherence and lexical diversity are above baseline. Keep up the great work!" : report?.narrative;
 
   const firstName = displayProfile?.name?.split(" ")[0] || user?.name?.split(" ")[0] || "there";
-  const riskTier = displayProfile?.risk_tier || displayLatest?.risk_tier || "Green";
+  const riskTier = displayLatest?.risk_tier ?? displayProfile?.risk_tier ?? null;
+  const analysisStatus = displayLatest?.analysis_status || (riskTier ? "complete" : "insufficient_baseline");
   const streak = displayProfile?.streak || 0;
   const totalSessions = displayProfile?.sessions_total || 0;
   const cognitiveAge = displayProfile?.cognitive_age || '—';
@@ -301,11 +311,14 @@ const Dashboard = () => {
     fullDate: session.fullDate || session.date,
     score: session.score,
     risk_tier: session.risk_tier,
+    analysis_status: session.analysis_status,
     semantic_coherence: session.semantic_coherence,
     lexical_diversity: session.lexical_diversity,
     speech_rate: session.speech_rate,
     pause_frequency: session.pause_frequency,
-    hnr: session.hnr,
+    pause_duration_mean: session.pause_duration_mean ?? session.pause_duration,
+    filled_pause_rate: session.filled_pause_rate,
+    hnr: session.hnr ?? session.HNR,
     jitter: session.jitter
   }));
 
@@ -313,27 +326,120 @@ const Dashboard = () => {
   const minScore = Math.min(...sessionHistory.map(s => s.score).filter(s => s !== null && s !== undefined), 0.12);
   const maxScore = Math.max(...sessionHistory.map(s => s.score).filter(s => s !== null && s !== undefined), 0.48);
 
-  // Prepare biomarkers list
+  // Prepare 14 Canonical Voice Biomarkers
   let biomarkersList = [];
 
   if (isDemo && displayBiomarkers) {
     biomarkersList = displayBiomarkers;
   } else if (displayLatest) {
+    const bm = displayLatest.biomarkers || displayLatest;
+    const typedMap = displayLatest.biomarker_results || bm.typed_results || {};
+    const getTyped = (key) => typedMap[key] || null;
+
     biomarkersList = [
-      { name: "Semantic Coherence", value: displayLatest.semantic_coherence?.toFixed(2), status: displayLatest.semantic_coherence > 0.85 ? "good" : "warning", trend: { type: "up", arrow: "▲", text: "Above baseline", percentage: (displayLatest.semantic_coherence || 0.7) * 100 } },
-      { name: "Lexical Diversity", value: displayLatest.lexical_diversity?.toFixed(2), status: displayLatest.lexical_diversity < 0.7 ? "warning" : "good", trend: { type: displayLatest.lexical_diversity < 0.7 ? "down" : "up", arrow: displayLatest.lexical_diversity < 0.7 ? "▼" : "▲", text: displayLatest.lexical_diversity < 0.7 ? "Watch" : "Normal", percentage: (displayLatest.lexical_diversity || 0.7) * 100 } },
-      { name: "Speech Rate", value: displayLatest.speech_rate ? Math.round(displayLatest.speech_rate) + " wpm" : "—", status: "good", trend: { type: "up", arrow: "▲", text: "Normal range", percentage: 70 } },
-      { name: "Pause Frequency", value: displayLatest.pause_frequency?.toFixed(1) + "/min", status: displayLatest.pause_frequency > 4 ? "warning" : "good", trend: { type: displayLatest.pause_frequency > 4 ? "down" : "up", arrow: displayLatest.pause_frequency > 4 ? "▼" : "▲", text: displayLatest.pause_frequency > 4 ? "Elevated" : "Normal", percentage: Math.min(100, (displayLatest.pause_frequency || 3) * 15) } },
-      { name: "Pitch Mean", value: displayLatest.pitch_mean ? Math.round(displayLatest.pitch_mean) + " Hz" : "—", status: "good", trend: { type: "up", arrow: "▲", text: "Stable", percentage: 65 } },
-      { name: "HNR", value: displayLatest.hnr?.toFixed(1) + " dB", status: displayLatest.hnr > 18 ? "good" : "warning", trend: { type: "up", arrow: "▲", text: "Good", percentage: (displayLatest.hnr / 25) * 100 } },
-      { name: "Articulation Rate", value: displayLatest.articulation_rate?.toFixed(1) + " syl/s", status: "good", trend: { type: "up", arrow: "▲", text: "Normal", percentage: 70 } },
-      { name: "Jitter", value: displayLatest.jitter ? (displayLatest.jitter * 100).toFixed(1) + "%" : "—", status: displayLatest.jitter < 0.01 ? "good" : "warning", trend: { type: "down", arrow: "▼", text: "Low", percentage: 80 } },
-      { name: "Shimmer", value: displayLatest.shimmer ? (displayLatest.shimmer * 100).toFixed(1) + "%" : "—", status: "good", trend: { type: "up", arrow: "▲", text: "Stable", percentage: 72 } },
-      { name: "Idea Density", value: displayLatest.idea_density?.toFixed(2), status: "good", trend: { type: "up", arrow: "▲", text: "Good", percentage: 60 } },
-      { name: "Syntactic Complexity", value: displayLatest.syntactic_complexity?.toFixed(2), status: "good", trend: { type: "up", arrow: "▲", text: "Normal", percentage: 68 } },
-      { name: "Pitch Range", value: displayLatest.pitch_range ? Math.round(displayLatest.pitch_range) + " Hz" : "—", status: displayLatest.pitch_range < 60 ? "warning" : "good", trend: { type: "down", arrow: "▼", text: "Watch", percentage: 55 } },
-      { name: "Pause Duration", value: displayLatest.pause_duration?.toFixed(2) + "s", status: "good", trend: { type: "down", arrow: "▼", text: "Normal", percentage: 65 } },
-      { name: "Emotional Entropy", value: displayLatest.emotional_entropy?.toFixed(2), status: "good", trend: { type: "up", arrow: "▲", text: "Stable", percentage: 70 } },
+      // 10 Acoustic Biomarkers
+      {
+        name: "Speech Rate",
+        value: bm.speech_rate ? Math.round(bm.speech_rate) + " wpm" : "—",
+        status: "good",
+        trend: { type: "up", arrow: "▲", text: "Normal range", percentage: 70 },
+        typedResult: getTyped("speech_rate"),
+      },
+      {
+        name: "Articulation Rate",
+        value: bm.articulation_rate != null ? bm.articulation_rate.toFixed(1) + " syl/s" : "—",
+        status: "good",
+        trend: { type: "up", arrow: "▲", text: "Normal", percentage: 70 },
+        typedResult: getTyped("articulation_rate"),
+      },
+      {
+        name: "Pause Frequency",
+        value: bm.pause_frequency != null ? bm.pause_frequency.toFixed(1) + "/min" : "—",
+        status: (bm.pause_frequency || 0) > 4 ? "warning" : "good",
+        trend: { type: (bm.pause_frequency || 0) > 4 ? "down" : "up", arrow: (bm.pause_frequency || 0) > 4 ? "▼" : "▲", text: (bm.pause_frequency || 0) > 4 ? "Elevated" : "Normal", percentage: Math.min(100, (bm.pause_frequency || 3) * 15) },
+        typedResult: getTyped("pause_frequency"),
+      },
+      {
+        name: "Pause Duration",
+        value: (bm.pause_duration_mean ?? bm.pause_duration) != null ? (bm.pause_duration_mean ?? bm.pause_duration).toFixed(2) + "s" : "—",
+        status: "good",
+        trend: { type: "down", arrow: "▼", text: "Normal", percentage: 65 },
+        typedResult: getTyped("pause_duration_mean") || getTyped("pause_duration"),
+      },
+      {
+        name: "Filled Pause Rate",
+        value: bm.filled_pause_rate != null ? bm.filled_pause_rate.toFixed(1) + "/min" : "—",
+        status: (bm.filled_pause_rate || 0) > 3.0 ? "warning" : "good",
+        trend: { type: (bm.filled_pause_rate || 0) > 3.0 ? "down" : "up", arrow: (bm.filled_pause_rate || 0) > 3.0 ? "▼" : "▲", text: (bm.filled_pause_rate || 0) > 3.0 ? "Elevated" : "Low", percentage: 70 },
+        typedResult: getTyped("filled_pause_rate"),
+      },
+      {
+        name: "Pitch Mean",
+        value: bm.pitch_mean ? Math.round(bm.pitch_mean) + " Hz" : "—",
+        status: "good",
+        trend: { type: "up", arrow: "▲", text: "Stable", percentage: 65 },
+        typedResult: getTyped("pitch_mean"),
+      },
+      {
+        name: "Pitch Range",
+        value: bm.pitch_range ? Math.round(bm.pitch_range) + " Hz" : "—",
+        status: (bm.pitch_range || 70) < 60 ? "warning" : "good",
+        trend: { type: (bm.pitch_range || 70) < 60 ? "down" : "up", arrow: (bm.pitch_range || 70) < 60 ? "▼" : "▲", text: (bm.pitch_range || 70) < 60 ? "Watch" : "Normal", percentage: 55 },
+        typedResult: getTyped("pitch_range"),
+      },
+      {
+        name: "Jitter",
+        value: bm.jitter != null ? (bm.jitter * 100).toFixed(1) + "%" : "—",
+        status: (bm.jitter || 0) < 0.015 ? "good" : "warning",
+        trend: { type: "down", arrow: "▼", text: "Low", percentage: 80 },
+        typedResult: getTyped("jitter"),
+        isProxy: true,
+      },
+      {
+        name: "Shimmer",
+        value: bm.shimmer != null ? (bm.shimmer * 100).toFixed(1) + "%" : "—",
+        status: "good",
+        trend: { type: "up", arrow: "▲", text: "Stable", percentage: 72 },
+        typedResult: getTyped("shimmer"),
+        isProxy: true,
+      },
+      {
+        name: "HNR",
+        value: (bm.hnr ?? bm.HNR) != null ? (bm.hnr ?? bm.HNR).toFixed(1) + " dB" : "—",
+        status: (bm.hnr ?? bm.HNR ?? 20) > 18 ? "good" : "warning",
+        trend: { type: "up", arrow: "▲", text: "Good", percentage: ((bm.hnr ?? bm.HNR ?? 20) / 25) * 100 },
+        typedResult: getTyped("hnr") || getTyped("HNR"),
+        isProxy: true,
+      },
+      // 4 Linguistic / NLP Biomarkers
+      {
+        name: "Lexical Diversity",
+        value: bm.lexical_diversity != null ? bm.lexical_diversity.toFixed(2) : "—",
+        status: (bm.lexical_diversity || 0.8) < 0.7 ? "warning" : "good",
+        trend: { type: (bm.lexical_diversity || 0.8) < 0.7 ? "down" : "up", arrow: (bm.lexical_diversity || 0.8) < 0.7 ? "▼" : "▲", text: (bm.lexical_diversity || 0.8) < 0.7 ? "Watch" : "Normal", percentage: (bm.lexical_diversity || 0.7) * 100 },
+        typedResult: getTyped("lexical_diversity"),
+      },
+      {
+        name: "Semantic Coherence",
+        value: bm.semantic_coherence != null ? bm.semantic_coherence.toFixed(2) : "—",
+        status: (bm.semantic_coherence || 0.8) > 0.85 ? "good" : "warning",
+        trend: { type: "up", arrow: "▲", text: "Above baseline", percentage: (bm.semantic_coherence || 0.7) * 100 },
+        typedResult: getTyped("semantic_coherence"),
+      },
+      {
+        name: "Idea Density",
+        value: bm.idea_density != null ? bm.idea_density.toFixed(2) : "—",
+        status: "good",
+        trend: { type: "up", arrow: "▲", text: "Good", percentage: 60 },
+        typedResult: getTyped("idea_density"),
+      },
+      {
+        name: "Syntactic Complexity",
+        value: bm.syntactic_complexity != null ? bm.syntactic_complexity.toFixed(2) : "—",
+        status: "good",
+        trend: { type: "up", arrow: "▲", text: "Normal", percentage: 68 },
+        typedResult: getTyped("syntactic_complexity"),
+      },
     ];
   }
 
@@ -415,9 +521,11 @@ const Dashboard = () => {
                   {new Date().toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                 </p>
               </div>
-              <div className={`risk-chip ${riskTier?.toLowerCase() || 'green'}`}>
-                <span className="risk-pulse"></span>
-                Current Risk: {riskTier || 'Green'}
+              <div className={`risk-chip ${riskTier ? riskTier.toLowerCase() : (analysisStatus === "insufficient_data" ? "insufficient" : "baseline")}`}>
+                <span className={`risk-pulse ${riskTier ? "" : "neutral"}`}></span>
+                {riskTier
+                  ? `Current Risk: ${riskTier}`
+                  : (analysisStatus === "insufficient_data" ? "Insufficient Data" : "Establishing Baseline")}
               </div>
             </div>
 
@@ -539,7 +647,7 @@ const Dashboard = () => {
                           cx={point.x}
                           cy={point.y}
                           r="6"
-                          className={`chart-point ${point.session.risk_tier?.toLowerCase() || 'green'}`}
+                          className={`chart-point ${point.session.risk_tier ? point.session.risk_tier.toLowerCase() : 'baseline'}`}
                         />
                         <circle
                           cx={point.x}

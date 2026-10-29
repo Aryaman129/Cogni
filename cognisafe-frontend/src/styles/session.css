@@ -715,18 +715,33 @@
 }
 
 .results-badge.rb-green {
-  background: rgba(127, 183, 126, 0.1);
+  background: rgba(16, 185, 129, 0.12);
   color: var(--success);
 }
 
 .results-badge.rb-yellow {
-  background: rgba(229, 181, 106, 0.1);
+  background: rgba(245, 158, 11, 0.12);
   color: var(--warning);
 }
 
 .results-badge.rb-red {
-  background: rgba(229, 131, 131, 0.1);
+  background: rgba(239, 68, 68, 0.12);
   color: var(--danger);
+}
+
+.results-badge.rb-baseline {
+  background: rgba(232, 160, 32, 0.15);
+  color: var(--amber, #E8A020);
+}
+
+.results-badge.rb-insufficient {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94A3B8;
+}
+
+.results-badge.rb-unavailable {
+  background: rgba(100, 116, 139, 0.15);
+  color: #64748B;
 }
 
 .results-metrics {
