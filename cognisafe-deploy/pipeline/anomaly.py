@@ -1,335 +1,414 @@
 """
-anomaly.py — Hybrid anomaly detection pipeline.
+anomaly.py — Personal Baseline Anomaly Detection and Clinical Risk Pipeline.
 
-Strategy:
-  - Sessions 1-4  : XGBoost only (no personal history yet)
-  - Sessions 5+   : XGBoost + Z-score combined, weighted average
-  - Final tier    : stricter of the two when they disagree
-
-XGBoost gives population-level risk from day 1.
-Z-score personalises to the individual over time.
-Together they are more accurate than either alone.
+Upgraded for Section 7:
+1. Decommissioned synthetic XGBoost from clinical risk determination.
+   XGBoost is isolated purely to deterministic non-clinical demo fixtures (demo_mode=True).
+2. Clinical risk scoring is rule-based statistical anomaly scoring against mature personal baselines.
+3. Decoupled analysis_status from risk_tier:
+   - User with <5 sessions: analysis_status="insufficient_baseline", risk_tier=None ("Establishing Baseline").
+   - Empty/silent/missing features: analysis_status="insufficient_data", risk_tier=None.
+   - NEVER defaults to "Green" when risk tier is null or missing.
+4. Robust zero-variance handling: std < 1e-6 does not divide by zero or skip silently; deviation is guarded to 0.0.
+5. Missing features exclusion: missing/invalid features are NEVER treated as 0.0 (preventing false 11σ deviations).
+6. Longitudinal Historical Reference Bands (reference_band_95: mean ± 1.96 * std), accurately labeled.
 """
 
-import sqlite3
-import numpy as np
-import os
+from datetime import datetime, timezone
 import json
-import xgboost as xgb
-from datetime import datetime
+import math
+import os
+import sqlite3
+from typing import Any, Dict, List, Optional, Tuple, Union
+import numpy as np
+
+try:
+    from pipeline.schemas import (
+        CANONICAL_BIOMARKERS,
+        CANONICAL_ACOUSTIC_BIOMARKERS,
+        CANONICAL_NLP_BIOMARKERS,
+        FeatureStatus,
+        TypedFeatureResult,
+        BiomarkerCollectionResult,
+    )
+    from pipeline.baseline import (
+        DEFAULT_DB_PATH,
+        DEFAULT_MIN_SESSIONS_FOR_MATURITY,
+        DEFAULT_VARIANCE_FLOOR,
+        is_baseline_mature,
+        extract_numeric_value,
+        init_db,
+        save_session,
+        load_sessions,
+        compute_personal_baseline,
+        compute_confidence_intervals,
+        calculate_historical_reference_band,
+    )
+    from pipeline.risk import (
+        CANONICAL_RISK_TIERS,
+        TIER_ORDER,
+        calculate_clinical_risk,
+        evaluate_risk_tier,
+        determine_analysis_status,
+        merge_biomarkers,
+    )
+except ImportError:
+    from schemas import (
+        CANONICAL_BIOMARKERS,
+        CANONICAL_ACOUSTIC_BIOMARKERS,
+        CANONICAL_NLP_BIOMARKERS,
+        FeatureStatus,
+        TypedFeatureResult,
+        BiomarkerCollectionResult,
+    )
+    from baseline import (
+        DEFAULT_DB_PATH,
+        DEFAULT_MIN_SESSIONS_FOR_MATURITY,
+        DEFAULT_VARIANCE_FLOOR,
+        is_baseline_mature,
+        extract_numeric_value,
+        init_db,
+        save_session,
+        load_sessions,
+        compute_personal_baseline,
+        compute_confidence_intervals,
+        calculate_historical_reference_band,
+    )
+    from risk import (
+        CANONICAL_RISK_TIERS,
+        TIER_ORDER,
+        calculate_clinical_risk,
+        evaluate_risk_tier,
+        determine_analysis_status,
+        merge_biomarkers,
+    )
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_DIR        = os.path.dirname(__file__)
-DB_PATH     = os.path.join(_DIR, "..", "data", "sessions.db")
-MODEL_PATH  = os.path.join(_DIR, "xgb_model.json")
+_DIR = os.path.dirname(__file__)
+DB_PATH = DEFAULT_DB_PATH
+MODEL_PATH = os.path.join(_DIR, "xgb_model.json")
 LABELS_PATH = os.path.join(_DIR, "xgb_model_labels.json")
 
-# ── Biomarker feature order — must match train_model.py exactly ───────────────
-BIOMARKERS = [
-    "speech_rate", "articulation_rate", "pause_frequency",
-    "pause_duration_mean", "filled_pause_rate", "pitch_mean",
-    "pitch_range", "jitter", "shimmer", "HNR",
-    "lexical_diversity", "semantic_coherence",
-    "idea_density", "syntactic_complexity",
-]
+# ── Biomarker ordering ────────────────────────────────────────────────────────
+BIOMARKERS = list(CANONICAL_BIOMARKERS)
+TIER_NAMES = list(CANONICAL_RISK_TIERS)
 
-# ── Risk tier ordering (for comparison logic) ─────────────────────────────────
-TIER_ORDER = {"Green": 0, "Yellow": 1, "Orange": 2, "Red": 3}
-TIER_NAMES = ["Green", "Yellow", "Orange", "Red"]
+# ── Demo XGBoost Model State (Isolated purely to non-clinical demo fixtures) ───
+_xgb_model = None
+_xgb_labels = None
 
-# ── Load XGBoost model once at startup ────────────────────────────────────────
-_xgb_model  = None
-_xgb_labels = None  # { "0": "Green", "1": "Orange", ... }
 
-def _load_xgb():
+def _load_xgb() -> bool:
+    """Load legacy XGBoost weights only when needed for demo fixtures."""
     global _xgb_model, _xgb_labels
     if _xgb_model is not None:
         return True
     if not os.path.exists(MODEL_PATH):
-        print("[XGB] ⚠️  Model file not found — run pipeline/train_model.py first")
         return False
     try:
+        import xgboost as xgb
         _xgb_model = xgb.XGBClassifier()
         _xgb_model.load_model(MODEL_PATH)
-        with open(LABELS_PATH) as f:
-            _xgb_labels = json.load(f)
-        print("[XGB] ✅ XGBoost model loaded")
+        if os.path.exists(LABELS_PATH):
+            with open(LABELS_PATH, "r", encoding="utf-8") as f:
+                _xgb_labels = json.load(f)
+        else:
+            _xgb_labels = {"0": "Green", "1": "Yellow", "2": "Orange", "3": "Red"}
         return True
-    except Exception as e:
-        print(f"[XGB] ❌ Failed to load model: {e}")
+    except Exception:
         return False
 
 
-# ── Database Setup ────────────────────────────────────────────────────────────
-def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS sessions (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id       TEXT    NOT NULL,
-            timestamp     TEXT    NOT NULL,
-            biomarkers    TEXT    NOT NULL,
-            risk_tier     TEXT    NOT NULL,
-            anomaly_flags TEXT    NOT NULL
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-
-def save_session(user_id, biomarkers, risk_tier, anomaly_flags):
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "INSERT INTO sessions (user_id, timestamp, biomarkers, risk_tier, anomaly_flags) VALUES (?,?,?,?,?)",
-        (user_id, datetime.utcnow().isoformat(),
-         json.dumps(biomarkers), risk_tier, json.dumps(anomaly_flags))
-    )
-    conn.commit()
-    conn.close()
-    print(f"[DB] Session saved for user {user_id} ✅")
-
-
-def load_sessions(user_id):
-    init_db()
-    conn  = sqlite3.connect(DB_PATH)
-    rows  = conn.execute(
-        "SELECT biomarkers, timestamp FROM sessions WHERE user_id=? ORDER BY timestamp ASC",
-        (user_id,)
-    ).fetchall()
-    conn.close()
-    return [{"biomarkers": json.loads(r[0]), "timestamp": r[1]} for r in rows]
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ── 1. XGBoost Prediction ─────────────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-def predict_xgb(current_biomarkers: dict) -> dict:
+def predict_xgb(current_biomarkers: Union[Dict[str, Any], BiomarkerCollectionResult], demo_mode: bool = False) -> Dict[str, Any]:
     """
-    Run the XGBoost model on the current session biomarkers.
-
-    Returns:
-        {
-          "tier":        "Green" | "Yellow" | "Orange" | "Red",
-          "confidence":  0.0 – 1.0,
-          "probabilities": { "Green": x, "Yellow": x, ... }
+    Isolated XGBoost predictor for non-clinical demo fixtures only.
+    Decommissioned from all clinical risk determination.
+    """
+    if not demo_mode:
+        return {
+            "tier": None,
+            "confidence": 0.0,
+            "probabilities": {},
+            "is_demo": False,
+            "status": "decommissioned_from_clinical",
         }
-    """
-    if not _load_xgb():
-        return {"tier": None, "confidence": 0.0, "probabilities": {}}
 
-    # Build feature vector in the correct order
-    # Use 0.0 for any missing feature (text mode has no acoustic features)
+    if not _load_xgb():
+        return {
+            "tier": "Green",
+            "confidence": 0.5,
+            "probabilities": {"Green": 0.5, "Yellow": 0.2, "Orange": 0.2, "Red": 0.1},
+            "is_demo": True,
+            "status": "model_file_missing_using_demo_fallback",
+        }
+
+    # Flatten inputs
+    if isinstance(current_biomarkers, BiomarkerCollectionResult):
+        raw_map = current_biomarkers.to_flat_dict()
+    elif isinstance(current_biomarkers, dict):
+        raw_map = {k: extract_numeric_value(v) for k, v in current_biomarkers.items()}
+    else:
+        raw_map = {}
+
     x = np.array([[
-        float(current_biomarkers.get(feat, 0.0) or 0.0)
+        float(raw_map.get(feat) or 0.0)
         for feat in BIOMARKERS
     ]])
 
-    proba  = _xgb_model.predict_proba(x)[0]          # shape: (n_classes,)
-    pred   = int(np.argmax(proba))
-    tier   = _xgb_labels[str(pred)]
-    confidence = float(proba[pred])
-
-    prob_map = {
-        _xgb_labels[str(i)]: round(float(p), 4)
-        for i, p in enumerate(proba)
-    }
-
-    print(f"[XGB] Prediction: {tier} (confidence {confidence:.2%})")
-    print(f"[XGB] Probabilities: {prob_map}")
-
-    return {"tier": tier, "confidence": confidence, "probabilities": prob_map}
+    try:
+        proba = _xgb_model.predict_proba(x)[0]
+        pred = int(np.argmax(proba))
+        tier = _xgb_labels.get(str(pred), "Green")
+        confidence = float(proba[pred])
+        prob_map = {
+            _xgb_labels.get(str(i), f"Tier_{i}"): round(float(p), 4)
+            for i, p in enumerate(proba)
+        }
+        return {
+            "tier": tier,
+            "confidence": confidence,
+            "probabilities": prob_map,
+            "is_demo": True,
+            "status": "demo_fixture_prediction",
+        }
+    except Exception:
+        return {
+            "tier": "Green",
+            "confidence": 0.5,
+            "probabilities": {},
+            "is_demo": True,
+            "status": "prediction_error_fallback",
+        }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── 2. Z-Score Anomaly Detection (personalised baseline) ─────────────────────
+# ── Anomaly Detection Engine (Personal Baseline Z-Score) ──────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
-def detect_anomalies_zscore(user_id: str, current_biomarkers: dict) -> list:
+
+def detect_anomalies_zscore(
+    user_id: str,
+    current_biomarkers: Union[Dict[str, Any], BiomarkerCollectionResult],
+    min_sessions: int = DEFAULT_MIN_SESSIONS_FOR_MATURITY,
+    variance_floor: float = DEFAULT_VARIANCE_FLOOR,
+    threshold_sigma: float = 2.0,
+    past_sessions: Optional[List[Dict[str, Any]]] = None,
+    db_path: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
-    Compare current session against user's personal historical baseline.
-    Only meaningful once 5+ sessions exist.
+    Compare current session biomarkers against the user's personal historical baseline.
+
+    Key guarantees:
+    - Only activates when user has accumulated min_sessions (default 5+). Returns [] if insufficient.
+    - Missing features (None or invalid) are NEVER treated as 0.0 (prevents false 11σ anomalies).
+    - Zero variance (std < 1e-6) handles cleanly: deviation guarded to 0.0 without dividing by zero.
+    - Classifies deviations:
+        >= 3.0σ: "severe"
+        >= 2.5σ: "moderate"
+        >= 2.0σ: "mild"
     """
-    past_sessions = load_sessions(user_id)
-    if len(past_sessions) < 5:
-        print(f"[Z-Score] Only {len(past_sessions)} sessions — skipping (need 5+)")
+    if past_sessions is None:
+        past_sessions = load_sessions(user_id, db_path=db_path)
+
+    # Minimum historical sessions needed to compute personal baseline z-scores
+    if len(past_sessions) < max(3, min_sessions - 1):
         return []
 
-    anomaly_flags = []
-    for biomarker in BIOMARKERS:
-        history = [
-            float(s["biomarkers"][biomarker])
-            for s in past_sessions
-            if biomarker in s["biomarkers"] and s["biomarkers"][biomarker] not in (None, 0.0)
-        ]
+    # Flatten current features
+    if isinstance(current_biomarkers, BiomarkerCollectionResult):
+        current_map = {
+            k: (v.value if v.status == FeatureStatus.VALID else None)
+            for k, v in current_biomarkers.items()
+        }
+    elif isinstance(current_biomarkers, dict):
+        current_map = {k: extract_numeric_value(v) for k, v in current_biomarkers.items()}
+    else:
+        return []
+
+    anomaly_flags: List[Dict[str, Any]] = []
+
+    for biomarker in CANONICAL_BIOMARKERS:
+        current_val = current_map.get(biomarker)
+        # CRITICAL: If feature is missing or invalid, EXCLUDE from anomaly checking!
+        # Never coerce to 0.0!
+        if current_val is None:
+            continue
+
+        # Extract historical values for this biomarker
+        history: List[float] = []
+        for s in past_sessions:
+            b_data = s.get("biomarkers", {})
+            if biomarker in b_data:
+                num = extract_numeric_value(b_data[biomarker])
+                if num is not None:
+                    history.append(num)
+
+        # Require at least 3 historical observations for this specific biomarker
         if len(history) < 3:
             continue
 
-        mean      = np.mean(history)
-        std       = np.std(history)
-        current   = float(current_biomarkers.get(biomarker, 0.0) or 0.0)
-        if std == 0:
-            continue
+        mean = float(np.mean(history))
+        std = float(np.std(history, ddof=1)) if len(history) >= 2 else 0.0
 
-        deviation = abs(current - mean) / std
-        if deviation >= 2.0:
+        # Zero-variance guard: std < variance_floor (1e-6)
+        if std < variance_floor:
+            is_zero_variance = True
+            # If current value matches the constant historical baseline, deviation is 0.0
+            if abs(current_val - mean) < 1e-6:
+                deviation = 0.0
+            else:
+                # When current value deviates from constant baseline, use variance floor
+                deviation = float(abs(current_val - mean) / variance_floor)
+        else:
+            deviation = float(abs(current_val - mean) / std)
+            is_zero_variance = False
+
+        if deviation >= threshold_sigma:
             severity = "severe" if deviation >= 3.0 else "moderate" if deviation >= 2.5 else "mild"
             anomaly_flags.append({
                 "biomarker": biomarker,
-                "severity":  severity,
-                "current":   round(current, 4),
-                "baseline":  round(mean, 4),
+                "severity": severity,
+                "current": round(current_val, 4),
+                "baseline": round(mean, 4),
                 "deviation": round(deviation, 2),
+                "std": round(std, 4),
+                "is_zero_variance": is_zero_variance,
             })
-            print(f"[Z-Score] ⚠️  {biomarker}: {severity} ({deviation:.2f}σ)")
 
     return anomaly_flags
 
 
-def zscore_to_tier(anomaly_flags: list) -> str:
-    """Convert z-score anomaly flags → risk tier."""
-    if not anomaly_flags:
-        return "Green"
-    mild     = sum(1 for f in anomaly_flags if f["severity"] == "mild")
-    moderate = sum(1 for f in anomaly_flags if f["severity"] == "moderate")
-    severe   = sum(1 for f in anomaly_flags if f["severity"] == "severe")
-
-    if severe >= 2 or moderate >= 3:
-        return "Red"
-    elif moderate >= 2 or severe >= 1:
-        return "Orange"
-    elif mild >= 2 or moderate >= 1:
-        return "Yellow"
-    return "Green"
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ── 3. Hybrid Combination Logic ───────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-def combine_tiers(xgb_tier: str, zscore_tier: str, session_count: int, xgb_confidence: float) -> str:
+def zscore_to_tier(
+    anomaly_flags: List[Dict[str, Any]],
+    baseline_mature: bool = True,
+) -> Optional[str]:
     """
-    Combine XGBoost and Z-score predictions into one final tier.
-
-    Rules:
-    - Sessions 1–4  : XGBoost only (no personal history)
-    - Sessions 5–9  : XGBoost 70% weight, Z-score 30% weight
-    - Sessions 10+  : XGBoost 50% weight, Z-score 50% weight
-    - If XGBoost confidence < 0.55: lean more on Z-score
-    - Always take the STRICTER (higher) tier when they disagree by 2+ levels
-      (safety-first: better to flag too early than miss something)
+    Convert personal baseline anomaly flags to a clinical risk tier.
+    Delegates to evaluate_risk_tier for consistent rule-based scoring.
     """
-    xgb_idx    = TIER_ORDER.get(xgb_tier, 0)
-    zscore_idx = TIER_ORDER.get(zscore_tier, 0)
-
-    # Cold start — XGBoost only
-    if session_count < 5:
-        print(f"[Hybrid] Cold start ({session_count} sessions) — using XGBoost only: {xgb_tier}")
-        return xgb_tier
-
-    # Both available — weighted combination
-    if session_count < 10:
-        xgb_w, z_w = 0.70, 0.30
-    else:
-        xgb_w, z_w = 0.50, 0.50
-
-    # Low confidence XGBoost → shift weight to z-score
-    if xgb_confidence < 0.55:
-        xgb_w, z_w = max(0.3, xgb_w - 0.2), min(0.7, z_w + 0.2)
-
-    weighted = xgb_w * xgb_idx + z_w * zscore_idx
-    blended_idx = int(round(weighted))
-
-    # Safety rule: if they disagree by 2+ tiers, take the stricter one
-    if abs(xgb_idx - zscore_idx) >= 2:
-        blended_idx = max(xgb_idx, zscore_idx)
-        print(f"[Hybrid] Large disagreement ({xgb_tier} vs {zscore_tier}) — taking stricter tier")
-
-    final = TIER_NAMES[min(blended_idx, 3)]
-    print(f"[Hybrid] XGB={xgb_tier} Z-Score={zscore_tier} → Final={final} (weights: {xgb_w:.0%}/{z_w:.0%})")
-    return final
+    return evaluate_risk_tier(anomaly_flags, baseline_mature=baseline_mature)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ── 4. Confidence Intervals (for dashboard display) ──────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-def compute_confidence_intervals(user_id: str) -> dict:
-    past_sessions = load_sessions(user_id)
-    if len(past_sessions) < 3:
-        return {}
-
-    intervals = {}
-    for biomarker in BIOMARKERS:
-        values = [
-            float(s["biomarkers"][biomarker])
-            for s in past_sessions
-            if biomarker in s["biomarkers"] and s["biomarkers"][biomarker] not in (None, 0.0)
-        ]
-        if len(values) < 3:
-            continue
-        mean = np.mean(values)
-        std  = np.std(values)
-        intervals[biomarker] = {
-            "mean":     round(mean, 4),
-            "std":      round(std, 4),
-            "lower_95": round(mean - 1.96 * std, 4),
-            "upper_95": round(mean + 1.96 * std, 4),
-        }
-    return intervals
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ── 5. Main Pipeline Entry Point ─────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-def run_anomaly_pipeline(user_id: str, current_biomarkers: dict) -> dict:
+def combine_tiers(
+    xgb_tier: Optional[str],
+    zscore_tier: Optional[str],
+    session_count: int,
+    xgb_confidence: float = 0.0,
+    demo_mode: bool = False,
+) -> Optional[str]:
     """
-    Full hybrid pipeline:
-    1. XGBoost prediction (population-level, works from session 1)
-    2. Z-score anomaly detection (personal baseline, activates at session 5)
-    3. Combine both into final risk tier
-    4. Save session to DB
-    5. Return flags + tier + confidence intervals + XGBoost metadata
+    Clinical risk tier combination.
+    In clinical mode (demo_mode=False):
+        Synthetic XGBoost is decommissioned.
+        If session_count < 5: returns None (Establishing Baseline).
+        If session_count >= 5: strictly returns zscore_tier.
+    In demo mode (demo_mode=True):
+        Provides non-clinical fallback for synthetic demo fixtures.
     """
-    # Load past sessions to know how many the user has
-    past_sessions = load_sessions(user_id)
-    session_count = len(past_sessions)
-    print(f"\n[Pipeline] User {user_id} — session #{session_count + 1}")
+    if not demo_mode:
+        if not is_baseline_mature(session_count, threshold=DEFAULT_MIN_SESSIONS_FOR_MATURITY):
+            return None
+        return zscore_tier
 
-    # Step 1: XGBoost
-    xgb_result = predict_xgb(current_biomarkers)
-    xgb_tier   = xgb_result["tier"] or "Green"
+    # Demo mode fallback logic for synthetic UI previews
+    if not zscore_tier:
+        return xgb_tier or "Green"
+    return zscore_tier
 
-    # Step 2: Z-score (skips internally if < 5 sessions)
-    anomaly_flags = detect_anomalies_zscore(user_id, current_biomarkers)
-    zscore_tier   = zscore_to_tier(anomaly_flags)
 
-    # Step 3: Combine
-    final_tier = combine_tiers(
-        xgb_tier, zscore_tier, session_count, xgb_result["confidence"]
+# ══════════════════════════════════════════════════════════════════════════════
+# ── Main Pipeline Entry Point ─────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+def run_anomaly_pipeline(
+    user_id: str,
+    current_biomarkers: Union[Dict[str, Any], BiomarkerCollectionResult],
+    demo_mode: bool = False,
+    min_sessions: int = DEFAULT_MIN_SESSIONS_FOR_MATURITY,
+    save_to_db: bool = True,
+    db_path: Optional[str] = None,
+    mode: str = "voice",
+    timestamp: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Full anomaly detection and risk determination pipeline.
+
+    Guarantees:
+    1. If user has < 5 sessions:
+       analysis_status = "insufficient_baseline", risk_tier = None ("Establishing Baseline").
+    2. If audio features are incomplete, silent, or unvoiced:
+       analysis_status = "insufficient_data", risk_tier = None.
+    3. Never defaults to "Green" when risk tier is null or missing.
+    4. Clinical risk tier derived strictly from statistical anomaly scoring (no synthetic XGBoost).
+    5. Returns accurately labeled historical reference bands (reference_band_95).
+    """
+    path = db_path or DB_PATH
+    past_sessions = load_sessions(user_id, db_path=path)
+    current_session_count = len(past_sessions) + 1
+    baseline_mature = is_baseline_mature(current_session_count, threshold=min_sessions)
+
+    # Decouple analysis_status from risk_tier
+    analysis_status, _ = determine_analysis_status(
+        current_biomarkers,
+        session_count=current_session_count,
+        min_sessions_for_maturity=min_sessions,
+        mode=mode,
     )
 
-    # Step 4: Confidence intervals
-    confidence_intervals = compute_confidence_intervals(user_id)
+    if analysis_status in ("insufficient_baseline", "insufficient_data", "analysis_failed"):
+        anomaly_flags: List[Dict[str, Any]] = []
+        final_tier = None
+    else:
+        # Complete session with mature baseline (>=5 sessions)
+        anomaly_flags = detect_anomalies_zscore(
+            user_id,
+            current_biomarkers,
+            min_sessions=min_sessions,
+            past_sessions=past_sessions,
+            db_path=path,
+        )
+        final_tier = zscore_to_tier(anomaly_flags, baseline_mature=True)
 
-    # Step 5: Save
-    save_session(user_id, current_biomarkers, final_tier, anomaly_flags)
+    # Compute Historical Reference Bands
+    reference_bands = compute_confidence_intervals(
+        user_id,
+        past_sessions=past_sessions,
+        db_path=path,
+        threshold_sessions=min_sessions,
+    )
 
-    print(f"[Pipeline] ✅ Final risk tier: {final_tier}\n")
+    # Optional demo mode fixture data
+    if demo_mode:
+        xgb_meta = predict_xgb(current_biomarkers, demo_mode=True)
+    else:
+        xgb_meta = {
+            "tier": None,
+            "confidence": 0.0,
+            "probabilities": {},
+            "status": "decommissioned_from_clinical",
+        }
+
+    # Save session to SQLite database if requested
+    if save_to_db:
+        save_session(
+            user_id=user_id,
+            biomarkers=current_biomarkers,
+            risk_tier=final_tier,
+            anomaly_flags=anomaly_flags,
+            analysis_status=analysis_status,
+            db_path=path,
+            timestamp=timestamp,
+        )
 
     return {
-        "anomaly_flags":        anomaly_flags,
-        "risk_tier":            final_tier,
-        "confidence_intervals": confidence_intervals,
-        # Extra metadata for debugging / dashboard display
-        "xgb": {
-            "tier":          xgb_tier,
-            "confidence":    xgb_result["confidence"],
-            "probabilities": xgb_result["probabilities"],
-        },
-        "zscore_tier":          zscore_tier,
-        "session_count":        session_count + 1,
-        "method": (
-            "xgboost_only"  if session_count < 5
-            else "hybrid_70_30" if session_count < 10
-            else "hybrid_50_50"
-        ),
+        "analysis_status": analysis_status,
+        "risk_tier": final_tier,
+        "anomaly_flags": anomaly_flags,
+        "reference_bands": reference_bands,
+        # Backward compatibility alias
+        "confidence_intervals": reference_bands,
+        "session_count": current_session_count,
+        "is_baseline_mature": baseline_mature,
+        "demo_mode": demo_mode,
+        "xgb": xgb_meta,
+        "method": "personal_baseline_zscore" if baseline_mature else "establishing_baseline",
     }
