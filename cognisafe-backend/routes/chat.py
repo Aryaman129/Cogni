@@ -1,57 +1,37 @@
-import os
-import httpx
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import List
+import logging
+from typing import Optional
+from fastapi import APIRouter, Depends, status
+from models import User
+from dependencies import get_current_user
+from services.nebius_client import get_nebius_client
+from schemas.ai import ChatRequest, ChatResponse
+from .ai import router as ai_router
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.3-70b-versatile"
+router = APIRouter(tags=["chat"])
 
-
-class Message(BaseModel):
-    role: str      # "user" | "assistant"
-    content: str
-
-
-class ChatRequest(BaseModel):
-    messages:      List[Message]
-    system_prompt: str
+# Mount AI routes under /api/ai
+router.include_router(ai_router)
 
 
-@router.post("")
-async def chat(req: ChatRequest):
-    if not GROQ_API_KEY:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured")
+@router.post("/api/chat", response_model=ChatResponse)
+@router.post("/api/chat/", response_model=ChatResponse, include_in_schema=False)
+async def chat(
+    req: ChatRequest,
+    user: User = Depends(get_current_user),
+):
+    """
+    CogniSafe AI Chat powered by NVIDIA Nemotron 3.5 Lightning via Nebius Token Factory.
+    Enforces strict clinical system guardrails and JWT authentication.
+    Gracefully degrades to deterministic guidance if Nebius is unconfigured or unavailable.
+    """
+    client = get_nebius_client()
+    messages_payload = [{"role": m.role, "content": m.content} for m in req.messages]
 
-    payload = {
-        "model":    MODEL,
-        "messages": [
-            {"role": "system", "content": req.system_prompt},
-            *[{"role": m.role, "content": m.content} for m in req.messages],
-        ],
-        "max_tokens":   800,
-        "temperature":  0.7,
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            res = await client.post(
-                GROQ_URL,
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type":  "application/json",
-                },
-                json=payload,
-            )
-            res.raise_for_status()
-            data = res.json()
-            reply = data["choices"][0]["message"]["content"]
-            return {"reply": reply}
-
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=502, detail=f"Groq error: {e.response.text[:200]}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    response = await client.chat(
+        messages=messages_payload,
+        system_prompt=req.system_prompt,
+        context_biomarkers=req.context_biomarkers,
+    )
+    return response
