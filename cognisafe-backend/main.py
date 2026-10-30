@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+# Load local environment configuration (.env)
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, run_migrations

@@ -222,5 +222,5 @@ async def compare(session_a: dict, session_b: dict):
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    print("🚀 Starting CogniSafe AI Pipeline on port 7860...")
-    uvicorn.run("main:app", host="0.0.0.0", port=7860, reload=False)
+    print('[INFO] Starting CogniSafe AI Pipeline on port 7860...')
+    uvicorn.run(app, host='0.0.0.0', port=7860, reload=False)

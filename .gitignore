@@ -29,3 +29,9 @@ Session_Audio/
 # OS
 .DS_Store
 Thumbs.db
+
+# Testing & Agent artifacts
+.agents/
+.pytest_cache/
+.hypothesis/
+cognisafe-frontend/*.zip
