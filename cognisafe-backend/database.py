@@ -8,7 +8,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cognisafe.db")
 
-if DATABASE_URL.startswith("sqlite"):
+if DATABASE_URL.startswith("sqlite" ):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
     if DATABASE_URL.startswith("postgres://"):
