@@ -61,7 +61,7 @@ def get_today(
         session_id=session.id
     )
 
-@router.get("/latest", response_model=SessionResponse)
+@router.get("/latest", response_model=Optional[SessionResponse])
 def get_latest(
     db:   DBSession = Depends(get_db),
     user: User      = Depends(get_current_user)
@@ -72,8 +72,6 @@ def get_latest(
         .order_by(Session.recorded_at.desc())
         .first()
     )
-    if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No sessions found")
     return session
 
 @router.get("/history", response_model=List[HistoryItem])

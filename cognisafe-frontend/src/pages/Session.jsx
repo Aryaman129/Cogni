@@ -347,7 +347,13 @@ const Session = () => {
         for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
         setTranscript(t);
       };
-      rec.onerror = (e) => console.warn("Speech recognition error", e.error);
+      rec.onerror = (e) => {
+        if (e.error === "network") {
+          console.info("Web Speech API live preview unavailable in this browser environment; audio recording and server-side Whisper transcription remain fully active.");
+        } else {
+          console.warn("Speech recognition warning:", e.error);
+        }
+      };
       try { rec.start(); recognitionRef.current = rec; } catch (e) {}
     }
 
