@@ -1,532 +1,297 @@
-<div align="center">
+# CogniSafe 🧠
+### *Voice-First Longitudinal Cognitive-Health Monitoring Platform*
 
-<img src="https://img.shields.io/badge/CogniSafe-Cognitive%20Health%20AI-0A1628?style=for-the-badge&logo=brain&logoColor=E8A020" />
-
-# 🧠 CogniSafe
-### *Hear the Difference. Before It's Too Late.*
-
-> **AI-powered voice biomarker analysis for early cognitive health monitoring.**
-> Detect subtle changes in speech patterns that may indicate early cognitive decline — using just your voice.
-
-<br/>
-
-[![Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-cogni--safe.vercel.app-E8A020?style=for-the-badge)](https://cogni-safe.vercel.app)
-[![ML API](https://img.shields.io/badge/🤗%20ML%20API-HuggingFace%20Spaces-FF9D00?style=for-the-badge)](https://alamfarzann-cognisafe-ml.hf.space/health)
-[![License](https://img.shields.io/badge/License-MIT-0A1628?style=for-the-badge)](LICENSE)
-
-<br/>
-
-> Every 3 seconds, someone in the world develops dementia.
-> 50 million people are living with it today. Most are diagnosed **years too late**.
-> CogniSafe gives families the one thing they desperately want — **time**.
-
-</div>
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Aryaman129%2FCogni-0A1628?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Aryaman129/Cogni)
+[![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3.5--Lightning-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://build.nvidia.com)
+[![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory-00D26A?style=for-the-badge&logo=cloud&logoColor=white)](https://nebius.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18.0+-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![Three.js](https://img.shields.io/badge/Three.js-3D%20Drift%20Sphere-000000?style=for-the-badge&logo=three.js&logoColor=white)](https://threejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-E8A020?style=for-the-badge)](LICENSE)
 
 ---
 
-## 📖 Table of Contents
+## 📌 Overview
 
-1. [What is CogniSafe?](#-what-is-cognisafe)
-2. [Why Does CogniSafe Exist?](#-why-does-cognisafe-exist)
-3. [Key Features](#-key-features)
-4. [System Architecture](#️-system-architecture)
-5. [Data Flow Flowchart](#-data-flow-flowchart)
-6. [AI/ML Pipeline](#-aiml-pipeline)
-7. [The 14 Biomarkers](#-the-14-biomarkers)
-8. [Frontend](#️-frontend)
-9. [Backend](#️-backend)
-10. [Developer Guide](#-developer-guide)
-11. [API Reference](#-api-reference)
-12. [Why Voice?](#-why-voice)
-13. [Competitive Landscape](#-competitive-landscape)
-14. [Roadmap](#️-roadmap)
-15. [Team](#-team)
-16. [License](#-license)
+**CogniSafe** is an AI-powered, voice-first cognitive-health monitoring platform. By conducting brief, standardized speech assessments (such as picture descriptions), CogniSafe analyzes **14 clinically grounded speech and language biomarkers** and tracks changes over time against the user's **personal historical baseline**.
+
+Rather than relying on one-off population averages or static tests, CogniSafe observes subtle longitudinal trajectory shifts in acoustic motor-speech patterns and linguistic cohesion. It pairs mathematical anomaly detection with **NVIDIA Nemotron 3.5 Lightning** via **Nebius Token Factory** to deliver clear, clinician-oriented explanations with strict anti-hallucination guardrails.
+
+> **Medical Disclaimer:** CogniSafe is an exploratory, longitudinal monitoring tool designed to assist individuals and caregivers. It does not provide medical diagnoses or replace clinical neuropsychological evaluations.
 
 ---
 
-## 🧠 What is CogniSafe?
+## 🌟 Key Capabilities & Differentiators
 
-CogniSafe is a **non-invasive, voice-first cognitive health monitoring platform** that leverages artificial intelligence to detect early signs of cognitive decline through speech analysis.
+### 1. The 14 Canonical Biomarker Engine
+CogniSafe extracts and verifies 14 speech biomarkers across two complementary domains, ensuring every metric has mathematical integrity, audio validation, and typed failure handling:
 
-Instead of expensive MRI scans ($1,000–$3,000) or clinical neuropsychological tests ($500–$2,000), CogniSafe asks you to speak for just **3 minutes** — describing a picture using a clinically-validated task — and then lets advanced AI models analyze your speech.
+#### 🎙️ Acoustic Biomarkers (10)
+| Biomarker | Unit | Clinical Rationale & Extraction Methodology |
+| :--- | :--- | :--- |
+| **`speech_rate`** | `wpm` | Total words spoken per minute over total recording duration. Detects cognitive planning latency. |
+| **`articulation_rate`** | `syllables/sec` | Pacing computed strictly over voiced phonation frames, isolating articulation speed from hesitation pauses. |
+| **`pause_frequency`** | `pauses/min` | Frequency of silent pauses ($\ge 250$ ms) per minute. Reflects word-finding latency. |
+| **`pause_duration_mean`** | `seconds` | Average length of silence intervals. Prolonged pauses correlate with lexical retrieval deficits. |
+| **`filled_pause_rate`** | `fillers/min` | Frequency of hesitation vocalizations (*"um"*, *"uh"*, *"er"*). Highlights lexical search effort. |
+| **`pitch_mean`** | `Hz` | Mean fundamental frequency ($F_0$) during voiced frames, providing acoustic baseline phonation. |
+| **`pitch_range`** | `Hz` | Prosodic pitch modulation computed between 95th and 5th percentiles of voiced $F_0$. Detects monopitch. |
+| **`jitter`** | `%` | Period-to-period micro-perturbation in fundamental frequency. Measures vocal cord stability. |
+| **`shimmer`** | `%` | Cycle-to-cycle amplitude variability across voiced speech. Quantifies phonatory instability. |
+| **`HNR`** | `dB` | Harmonics-to-Noise Ratio. Reflects breathiness and dysphonia in sustained vowel segments. |
 
-### 🎯 Who is it for?
-
-| Persona | Use Case | Benefit |
-|---|---|---|
-| 👨‍👩‍👧 **Remote Caregivers** | Monitor an aging parent's cognitive health from across the country | Early detection from home, no clinic visits |
-| 🏈 **Retired Athletes** | Track potential CTE-related cognitive changes over time | Longitudinal monitoring for head injury sequelae |
-| 👫 **Concerned Spouses** | Get early, objective signals before a clinical diagnosis | Peace of mind with data-driven insights |
-| 🏥 **Neurologists** | Supplement clinical visits with longitudinal voice data | Objective biomarkers between appointments |
-| 🧬 **Researchers** | Build the world's largest longitudinal voice dataset | Advance cognitive health science |
-
----
-
-## ❓ Why Does CogniSafe Exist?
-
-### The Problem
-
-**Cognitive decline is diagnosed too late.** Most neurodegenerative diseases (Alzheimer's, Parkinson's, dementia) are detected only when symptoms become obvious — sometimes **5–10 years after neurological changes begin**.
-
-By that point, meaningful intervention windows have often closed.
-
-#### Current Gaps in Healthcare
-
-| Gap | Impact |
-|---|---|
-| 🕐 **Late Detection** | Diagnosis occurs when cognitive loss is already significant (MMSE ≤ 23) |
-| 💰 **High Cost** | Neuroimaging and assessments cost thousands; insurance often doesn't cover screening |
-| 🏥 **Accessibility** | Rural areas lack specialists; waiting times exceed 6 months |
-| 📉 **No Longitudinal Data** | Most assessments are one-time snapshots; no easy trend monitoring |
-| 👥 **Family Blindness** | Spouses/children lack objective tools to detect gradual changes |
-
-### The Solution: CogniSafe
-
-CogniSafe closes these gaps with:
-
-✅ **Early Detection** — Detects statistically significant changes years before clinical diagnosis  
-✅ **Affordable** — FREE vs. $1,000+ per clinical assessment  
-✅ **Accessible** — Requires only a smartphone and internet; works from home  
-✅ **Longitudinal** — Daily 3-minute sessions build a personal health baseline over time  
-✅ **Family-Friendly** — Plain-language dashboard designed for non-clinicians  
-✅ **Evidence-Based** — Built on 15+ years of peer-reviewed voice biomarker research  
-
-> **The core insight:** Your voice is a window into your brain. We've built the lens.
+#### 📖 Linguistic & NLP Biomarkers (4)
+| Biomarker | Unit | Clinical Rationale & Extraction Methodology |
+| :--- | :--- | :--- |
+| **`lexical_diversity`** | `MTLD` | Measure of Textual Lexical Diversity (MTLD), mathematically invariant to transcript length. |
+| **`semantic_coherence`** | `0.0 - 1.0` | Cosine similarity across sentence embedding trajectories. Measures topic cohesion and thematic drift. |
+| **`idea_density`** | `ratio` | Ratio of semantic propositions (verbs, adjectives, prepositions) per total words. Measures information density. |
+| **`syntactic_complexity`**| `depth` | Mean dependency parse tree depth, quantifying grammatical structure and sentence elaboration. |
 
 ---
 
-## ✨ Key Features
+### 2. NVIDIA Nemotron 3.5 Lightning via Nebius Token Factory
+CogniSafe integrates NVIDIA's cutting-edge **Nemotron 3.5 Lightning** model hosted on **Nebius Token Factory** (`https://api.tokenfactory.eu-north1.nebius.com/v1/`).
 
-### 🎙️ Voice Session Recording
-- **Daily 3-minute sessions** with a validated picture description task
-- **Live voice orb** that pulses in real-time with your speech amplitude
-- **WebRTC audio capture** directly in the browser — no app download needed
-- Automatic conversion and processing of browser-recorded audio
-- Privacy-first: Audio processed on-device before transmission
-
-### 📊 14-Biomarker Analysis Engine
-- **10 Acoustic Biomarkers** — extracted via openSMILE eGeMAPS
-  - Pitch, jitter, shimmer, harmonics-to-noise ratio, articulation rate, pauses, etc.
-- **4 NLP Biomarkers** — extracted via spaCy + sentence-transformers
-  - Semantic coherence, lexical diversity, idea density, syntactic complexity
-- **Full analysis returned in under 240 seconds** on CPU
-
-### 🔴 Risk Tier System
-
-Real-time risk assessment with color-coded tiers:
-
-| Tier | Color | Meaning | Action |
-|---|---|---|---|
-| 🟢 **Green** | Green | No anomalies detected — baseline stable | Continue monitoring |
-| 🟡 **Yellow** | Yellow | Mild deviations — worth monitoring | Weekly check-ins |
-| 🟠 **Orange** | Orange | Moderate anomalies — recommend follow-up | Consult healthcare provider |
-| 🔴 **Red** | Red | Significant deviation — seek professional advice | Schedule neurologist appointment |
-
-### 📈 Longitudinal Trend Dashboard
-- **14 biomarker cards** — each with 90-day sparkline charts
-- **Personal baseline comparison** — compared against YOUR own history, not population averages
-- **2-sigma anomaly detection** — statistically rigorous deviation flagging
-- Confidence intervals showing model certainty
-- Export trends as PDF for sharing with healthcare providers
-
-### 🧬 3D Semantic Drift Sphere
-- Interactive Three.js visualization of your **vocabulary over time**
-- Word nodes sized by frequency, colored by recency
-- **Time slider** — drag to see how your vocabulary has changed over 6 months
-- Detect semantic drift (loss of vocabulary richness)
-
-### 👨‍👩‍👧 Caregiver Dashboard
-- Plain-language status: *"Dad is doing WELL this week"*
-- 30-day calendar heat map showing session consistency
-- Zero medical jargon — designed for family members, not clinicians
-- PDF report download for sharing with a neurologist
-- Multi-user support for family members to monitor the same patient
+- **Strict Anti-Hallucination Guardrails:** The LLM is explicitly prevented from inventing or recalculating numerical measurements, units, or risk tiers.
+- **Ground-Truth Anchor Verification:** Observations must cite registered biomarker keys. All values and units displayed in the UI are populated authoritatively by the backend from verified sensor extractions.
+- **Resilient Fallback:** Automatically detects offline or unreachable states and transitions seamlessly to deterministic clinical rule-based templates.
 
 ---
 
-## 🏗️ System Architecture
-
-The CogniSafe platform is built as a **distributed system** with three main components: Frontend (React), Backend (FastAPI), and AI/ML Pipeline (Python + ML frameworks).
-
-![System Architecture](./assets/architecture_cognisafe.png)
-
-### Key Design Principles
-
-- **Microservices-friendly** — Each component can scale independently
-- **Stateless backend** — JWT-based auth enables horizontal scaling
-- **Privacy-first** — Audio stays encrypted in transit and at rest
-- **Resilient** — Graceful degradation if ML service is temporarily unavailable
-- **Real-time** — WebSockets for live session streaming (future enhancement)
+### 3. Personal Baseline & Anomaly Detection
+CogniSafe rejects rigid population averages in favor of an individualized baseline model:
+- **Baseline Maturity Gate:** Requires a minimum of **5 valid sessions** before establishing personal baseline statistics ($Mean$ and Standard Deviation $\sigma$).
+- **Dynamic Reference Bands:** Plots historical reference bands ($Mean \pm 1.96\sigma$) for each biomarker.
+- **Decoupled Risk Semantics:** Separates operational status (`insufficient_baseline`, `insufficient_data`, `complete`) from clinical risk tiers (`Green`, `Yellow`, `Orange`, `Red`), preventing false alarms.
 
 ---
 
-## 🔄 Data Flow Flowchart
-
-![System Architecture](./assets/flowchart.png)
-
-## 🤖 AI/ML Pipeline
-
-> **Deployed at:** `https://alamfarzann-cognisafe-ml.hf.space`
-
-The AI pipeline is the **heart of CogniSafe**. It accepts a raw audio file and returns a complete cognitive health snapshot in under **240 seconds on CPU**.
-
-### Pipeline Architecture
-
-![System Architecture](./assets/ai_ml.png)
-
-
-### Tech Stack — ML
-
-| Tool | Purpose |
-|---|---|
-| Python 3.11 | Core runtime |
-| FastAPI + Uvicorn | API server |
-| OpenAI Whisper Base | Speech-to-text |
-| openSMILE (eGeMAPS) | Acoustic feature extraction |
-| spaCy v3.7 | NLP processing |
-| sentence-transformers (MiniLM-L6-v2) | Semantic embeddings |
-| scikit-learn v1.3 | Anomaly detection |
-| librosa + soundfile | Audio utilities |
-| SQLite | Historical baseline tracking |
-| ffmpeg | Audio conversion |
-| HuggingFace Spaces + Docker | Hosting |
+### 4. Interactive 3D Semantic Drift Sphere
+Built with **Three.js**, the interactive semantic drift sphere renders spoken concepts in 3D vector space:
+- Demonstrates vocabulary clustering, topic stability, and semantic shift between sessions.
+- Allows intuitive user and clinician exploration of associative thought pathways.
 
 ---
 
-## 📊 The 14 Biomarkers
-
-CogniSafe analyzes **14 clinically-validated voice biomarkers** across acoustic and linguistic dimensions.
-
-| # | Biomarker | Type | Measurement | Clinical Significance |
-|---|---|---|---|---|
-| 1 | `speech_rate` | Acoustic | Words per minute | Slowed speech = cognitive load ↑ |
-| 2 | `articulation_rate` | Acoustic | WPM excluding pauses | Articulation issues = motor control decline |
-| 3 | `pause_frequency` | Acoustic | Pauses per minute | Increased pauses = planning difficulties |
-| 4 | `pause_duration_mean` | Acoustic | Seconds per pause | Longer pauses = reduced working memory |
-| 5 | `filled_pause_rate` | Acoustic | Uh/um per minute | Filled pauses = lexical retrieval difficulty |
-| 6 | `pitch_mean` | Acoustic | Hz (fundamental freq) | Pitch changes correlate with neurological health |
-| 7 | `pitch_range` | Acoustic | Variability in pitch | Reduced range = reduced emotional/cognitive control |
-| 8 | `jitter` | Acoustic | Cycle-to-cycle F0 variation | Jitter ↑ = vocal cord dysfunction |
-| 9 | `shimmer` | Acoustic | Amplitude variation | Shimmer ↑ = motor control issues |
-| 10 | `HNR` | Acoustic | Harmonics-to-noise ratio | HNR ↓ = vocal pathology or neurological change |
-| 11 | `lexical_diversity` | NLP | MTLD vocabulary richness | Diversity ↓ = reduced verbal fluency |
-| 12 | `semantic_coherence` | NLP | Sentence-to-sentence flow | Coherence ↓ = disorganized thinking |
-| 13 | `idea_density` | NLP | Propositions per word | Density ↓ = reduced verbal productivity |
-| 14 | `syntactic_complexity` | NLP | Average parse tree depth | Complexity ↓ = simplified speech |
-
-> **All biomarkers are compared against the user's own baseline** — not population norms. This enables personalized, sensitive detection of *individual drift*.
-👉 [AI/ML Documentation](./cognisafe-deploy/README.md)
----
-
-## 🖥️ Frontend
-
-> **Live at:** `https://cogni-safe.vercel.app`
-
-Built with **React 18 + Vite**, the frontend is optimized for clarity, emotional impact, and accessibility.
-
-### Pages & Features
-
-| Route | Component | Purpose |
-|---|---|---|
-| `/auth` | Login/Register | JWT-based authentication |
-| `/dashboard` | Biomarker Dashboard | 14 biomarker cards, trends, risk tier |
-| `/session` | Voice Recorder | 2-min recording with live orb animation |
-| `/brain` | 3D Sphere | Interactive semantic drift visualization |
-| `/ar-report` | Health Report | AI-generated cognitive report |
-| `/caregiver` | Caregiver View | Family member dashboard |
-
-### Tech Stack — Frontend
-
-| Technology | Role |
-|---|---|
-| React 18 + Vite | Core framework & bundler |
-| TailwindCSS | Styling |
-| Framer Motion | Animations |
-| Three.js | 3D semantic sphere |
-| Recharts | Biomarker trend charts |
-| React Router v6 | Client-side routing |
-| Web Audio API + MediaRecorder | Microphone capture |
-| zustand | State management |
-| axios + date-fns | HTTP client & date utilities |
-| Vercel | Hosting |
-
-👉 [Frontend Documentation](./cognisafe-frontend/README.md)
+### 5. Secure Caregiver Family Portal
+- Cryptographically secure, scoped, and revocable caregiver share tokens.
+- Caregivers receive plain-language summaries and longitudinal trends without granting full account access.
 
 ---
 
-## ⚙️ Backend
+## 🏗️ Architecture & Data Flow
 
-> Built with **FastAPI (Python)**, deployed on **Render**.
+```mermaid
+flowchart TD
+    subgraph Client["Frontend Client (React + Vite + Three.js)"]
+        UI[User Dashboard & 14 Biomarker Cards]
+        Record[Microphone Recording • 3-Min Assessment]
+        Sphere[3D Semantic Drift Sphere]
+        CaregiverUI[Caregiver Portal]
+    end
 
-Handles authentication, session persistence, trend calculations, and report generation.
+    subgraph Backend["FastAPI Gateway (:8000)"]
+        Auth[JWT Authentication & User Isolation]
+        JobService[Persistent Job Lifecycle & Polling]
+        NebiusService[Nebius Client • Nemotron 3.5 Lightning]
+        DB[(SQLite / PostgreSQL DB)]
+    end
 
-### Tech Stack — Backend
+    subgraph Pipeline["AI/ML Pipeline (:7860)"]
+        Validator[Audio Validator • SNR & Voiced Energy]
+        Whisper[ASR Transcription Engine]
+        AcousticEngine[Acoustic Engine • Praat / Librosa]
+        NLPEngine[NLP Engine • Spacy / Sentence-Transformers]
+        AnomalyEngine[Baseline Anomaly Detector & Risk Tiers]
+    end
 
-| Technology | Role |
-|---|---|
-| Python 3.11 | Core runtime |
-| FastAPI + Uvicorn | API server |
-| PostgreSQL | Primary database |
-| SQLAlchemy | ORM |
-| PyJWT + bcrypt | Auth & password hashing |
-| Pydantic | Request/response validation |
-| Docker | Containerization |
-| Render | Hosting |
+    subgraph Cloud["Inference Infrastructure"]
+        Nebius[Nebius Token Factory Cloud API]
+        Nemotron[nvidia/Nemotron-3_5-Lightning]
+    end
 
-👉 [Backend Documentation](./cognisafe-backend/README.md)
-
----
-
-## 🔌 API Reference
-
-### Authentication
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `POST` | `/api/auth/register` | Create new user account |
-| `POST` | `/api/auth/login` | JWT token generation |
-| `GET` | `/api/auth/me` | Get current user profile |
-
-### Sessions
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/sessions/today` | Check if user recorded today |
-| `POST` | `/api/sessions` | Save ML results to DB |
-| `GET` | `/api/sessions/history` | Get all past sessions (paginated) |
-| `GET` | `/api/sessions/{id}` | Get specific session details |
-
-### Analytics & Reports
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/trends` | Get biomarker trend data (30 days) |
-| `POST` | `/api/reports/generate` | Generate AI health report |
-| `GET` | `/api/reports/{id}` | Download generated report |
-
-### Caregiver
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `POST` | `/api/caregiver/link` | Create share link for family |
-| `GET` | `/api/caregiver/view/{token}` | Caregiver-accessible dashboard |
+    Record -->|1. Multipart Audio Upload| Backend
+    Backend -->|2. Forward Audio| Validator
+    Validator --> Whisper
+    Whisper --> AcousticEngine & NLPEngine
+    AcousticEngine & NLPEngine --> AnomalyEngine
+    AnomalyEngine -->|3. 14 Typed Biomarkers + Risk| Backend
+    Backend -->|4. Ground Truth Biomarkers| NebiusService
+    NebiusService -->|5. Chat Completion Request| Nebius
+    Nebius --> Nemotron
+    Nemotron -->|6. Grounded Observation Narrative| NebiusService
+    Backend -->|7. Persist Session & Insights| DB
+    UI & Sphere & CaregiverUI -->|8. Fetch Live State| Backend
+```
 
 ---
 
-## 🚀 Developer Guide
-
-This project is a **full-stack application** with three independent services:
-
-- 🤖 **AI/ML Pipeline** — Voice biomarker analysis (Python + FastAPI)
-- ⚙️ **Backend API** — Session storage & trend calculations (Python + FastAPI)
-- 🎨 **Frontend Web App** — User interface (React + Vite)
+## ⚡ Quickstart & Setup Guide
 
 ### Prerequisites
+- **Python 3.11+** or **3.12+**
+- **Node.js 18+** and **npm**
+- **Git**
+- *(Optional)* Nebius Token Factory API Key (offline fallback works automatically without it)
 
-- Python 3.11+
-- FastAPI 18+
-- PostgreSQL 14+
-- ffmpeg (`brew install ffmpeg` / `choco install ffmpeg`)
+---
 
-### One-Command Local Setup (Windows)
-
-```batch
-start_all.bat
-```
-
-This launches all three services in separate terminal windows.
-
-### Manual Setup
-
-#### 1. Clone the Repository
-
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/workishika7-source/CogniSafe.git
-cd CogniSafe
+git clone https://github.com/Aryaman129/Cogni.git
+cd Cogni
 ```
 
-#### 2. Start ML Pipeline
+---
 
+### 2. Environment Configuration
+Create a `.env` file in the root and in `cognisafe-backend/` (template available in `.env.example`):
+
+```ini
+# Security & JWT
+SECRET_KEY=your_secure_random_64_character_hex_key_here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+ENVIRONMENT=development
+
+# Database & CORS
+DATABASE_URL=sqlite:///./cognisafe.db
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# Nebius Token Factory & NVIDIA Nemotron 3.5 Lightning
+NEBIUS_API_KEY=your_token_factory_api_key_here
+NEBIUS_BASE_URL=https://api.tokenfactory.eu-north1.nebius.com/v1/
+NEBIUS_MODEL_ID=nvidia/Nemotron-3_5-Lightning
+NEBIUS_TIMEOUT_SECONDS=30.0
+
+# Audio Processing Boundaries
+UPLOAD_MAX_SIZE_BYTES=26214400
+UPLOAD_DIR=uploads
+```
+
+---
+
+### 3. Install Dependencies & Seed Database
+
+#### Backend Setup
+```bash
+cd cognisafe-backend
+pip install -r requirements.txt
+python seed.py
+cd ..
+```
+> *`python seed.py` populates a demo account (`demo@cognisafe.app / demo1234`) with 6 months of historical sessions.*
+
+#### ML Pipeline Setup
 ```bash
 cd cognisafe-deploy
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-cd api
-python main.py
-# Runs on http://localhost:7860
+cd ..
 ```
 
-#### 3. Start Backend
-
-```bash
-cd cognisafe-backend
-python -m venv venv
-source venv/bin/activate       # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env            # Edit with your config
-uvicorn main:app --reload --port 8000
-# Runs on http://localhost:8000
-```
-
-#### 4. Start Frontend
-
+#### Frontend Setup
 ```bash
 cd cognisafe-frontend
 npm install
-cp .env.example .env.local      # Edit with backend URL
+cd ..
+```
+
+---
+
+### 4. Running the Platform
+
+#### Option A: One-Click Startup (Windows)
+Run the automated launcher:
+```bat
+start_all.bat
+```
+
+#### Option B: Manual Startup (Separate Terminals)
+```bash
+# Terminal 1: AI/ML Pipeline
+cd cognisafe-deploy
+python api/main.py
+
+# Terminal 2: FastAPI Backend
+cd cognisafe-backend
+uvicorn main:app --reload --port 8000
+
+# Terminal 3: React Frontend
+cd cognisafe-frontend
 npm run dev
-# Runs on http://localhost:5173
 ```
 
-### Running Tests
+---
+
+### 5. Accessing Services
+
+| Service | Endpoint | Description |
+| :--- | :--- | :--- |
+| **Web Application** | [http://localhost:5173](http://localhost:5173) | Interactive patient dashboard, 3D sphere & recording |
+| **FastAPI Backend Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive OpenAPI Swagger UI |
+| **ML Pipeline Docs** | [http://localhost:7860/docs](http://localhost:7860/docs) | Feature extraction & biomarker pipeline API |
+
+#### Demo Login Credentials
+- **Email:** `demo@cognisafe.app`
+- **Password:** `demo1234`
+*(Or click **Register** on the login page to create your own account)*
+
+---
+
+## 🧪 Testing & Verification
+
+CogniSafe includes an end-to-end test suite covering unit math, boundary integrity, and adversarial speech scenarios:
 
 ```bash
-npm test
+# Run all unit tests
+pytest tests/unit -v
+
+# Run challenger speech tests & E2E scenarios
+pytest tests/e2e -v
+
+# Run full test suite with coverage
+pytest --cov=cognisafe-backend --cov=cognisafe-deploy
 ```
 
----
-
-### 📚 Component Documentation
-
-| Component | Docs |
-|---|---|
-| 🤖 ML Pipeline | `cognisafe-deploy/README.md` |
-| ⚙️ Backend API | `cognisafe-backend/README.md` |
-| 🎨 Frontend | `cognisafe-frontend/README.md` |
-
-### 🔄 Contributing Workflow
-
-```bash
-# 1. Create feature branch
-git checkout -b feature/your-feature
-
-# 2. Make changes & test locally
-
-# 3. Commit with clear message
-git commit -m "feat: add biomarker visualization"
-
-# 4. Push and open PR
-git push origin feature/your-feature
-```
-
-### 🚢 Deployment
-
-| Service | Platform | Trigger |
-|---|---|---|
-| Frontend | Vercel | `vercel deploy` |
-| Backend | Render | Push to `main` (auto-deploys) |
-| ML Pipeline | HuggingFace Spaces | Push to Spaces repo |
+**Test Coverage Highlights:**
+- ✅ **Mathematical Invariance:** Validates MTLD and pause ratios across varying token lengths.
+- ✅ **Audio Signal Boundaries:** Rejects silent audio, clipped recordings, and high-noise environments.
+- ✅ **Anti-Hallucination Guardrails:** Verifies that unknown or unmeasured biomarkers from LLM responses are rejected.
+- ✅ **JWT & Caregiver Security:** Confirms that unauthenticated requests and expired tokens fail with HTTP 401/403.
 
 ---
 
-## 🧪 Why Voice?
+## 📡 API Reference Overview
 
-Research shows that **speech and language changes precede clinical dementia diagnosis by 5–10 years** — before structural brain changes are visible on MRI.
+### Authentication (`/api/auth`)
+- `POST /api/auth/register` — Register a new user account with hashed password.
+- `POST /api/auth/login` — Authenticate and receive a JWT Bearer access token.
 
-### Key Findings (Peer-Reviewed Literature)
+### Sessions & Analysis (`/api/sessions`)
+- `GET /api/sessions/latest` — Fetch the user's latest recorded session and biomarkers.
+- `GET /api/sessions/history?months=3` — Retrieve historical biomarker trajectories.
+- `POST /api/sessions/` — Record and store a newly computed session.
 
-| Biomarker | Finding | Source |
-|---|---|---|
-| Lexical Diversity | Declines 5–10 years before MCI diagnosis | Garrard et al. (2005) |
-| Pause Patterns | Increase with cognitive load & planning difficulty | Tsoy et al. (2021) |
-| Semantic Coherence | Drops as working memory degrades | Roark et al. (2011) |
-| Pitch Variability | Correlates with neurological health | Herff et al. (2014) |
-| Speech Rate | Slows with frontal lobe dysfunction | Murray et al. (2014) |
+### AI Explanations & Nemotron (`/api/ai`)
+- `POST /api/ai/explain-anomaly` — Generate Nemotron 3.5 Lightning biomarker explanation.
+- `POST /api/ai/weekly-summary` — Produce structured longitudinal cognitive summaries.
+- `POST /api/ai/caregiver-summary` — Plain-language family briefing.
 
-### Why CogniSafe Uses Voice
-
-✅ **Early Detection** — Speech changes appear years before clinical diagnosis  
-✅ **Non-invasive** — No needles, no radiation, no expensive equipment  
-✅ **Accessible** — Requires only a smartphone and internet connection  
-✅ **Continuous** — Users can monitor from home daily; not just annual checkups  
-✅ **Standardized** — Picture description task is validated across 30+ years of research  
-✅ **Quantifiable** — AI extracts 14 objective biomarkers; removes human bias  
+### Caregiver Sharing (`/api/caregiver`)
+- `POST /api/caregiver/share` — Create a secure, scoped access token for family/caregivers.
+- `GET /api/caregiver/shared/{token}` — Public view for authorized caregivers.
 
 ---
 
-## 🏆 Competitive Landscape
+## 👤 Author & Maintainer
 
-| Solution | Cost/Month | Invasiveness | Test Frequency | Longitudinal | Tech |
-|---|---|---|---|---|---|
-| 🧲 MRI Brain Scan | $100–250 | Very High | Yearly | ❌ | Neuroimaging |
-| 🧩 Neuropsych Tests | $50–150 | Medium | Yearly | Partial | Clinician-led |
-| ⌚ Wearables | $10–30 | None | Continuous | ✅ | Accelerometer |
-| 📱 Mood/Cognitive Apps | Free–$20 | None | Daily | Partial | Self-reported |
-| 🔬 Blood Biomarkers | $50–200 | Low | Every 6mo | ✅ | Lab test |
-| 🧠 **CogniSafe** | **$15** | **None** | **Daily** | **✅** | **Voice AI** |
-
-### CogniSafe Advantages
-
-| Advantage | Details |
-|---|---|
-| 💰 Cost | 5–10× cheaper than clinical assessments |
-| 📅 Frequency | Daily monitoring vs. annual checkups |
-| 🏠 Accessibility | Home-based; no specialist appointments |
-| 🎯 Objectivity | AI removes clinician bias |
-| 🔗 Complementary | Complements blood biomarkers and imaging |
-
----
-
-## 🗺️ Roadmap
-![System Architecture](./assets/road_map.png)
-
-### Phase Details
-
-| Phase | Timeline | Milestones | Status |
-|---|---|---|---|
-| 🚀 MVP | 2026 Q1–Q2 | Web app launch, 14 biomarkers, basic trends | ✅ Shipping |
-| 📱 Mobile | 2026 Q3 | React Native iOS + Android, offline mode | 🔄 In Development |
-| 🏥 Healthcare | 2026 Q4 | Insurance partnerships, B2B2C model, HIPAA compliance | 📋 Planned |
-| 📋 FDA | 2027 | Breakthrough Device Designation, clinical validation study | 🔮 Future |
-| 💊 Pharma | 2028–2030 | Clinical trial API, pharma licensing, global rollout | 🔮 Future |
-
-### Backlog
-
-- 🎨 **UI/UX** — A/B tested caregiver dashboard redesign
-- 🔐 **Privacy** — End-to-end encryption, on-device ML inference
-- 🌍 **Multilingual** — Biomarkers for Spanish, Mandarin, French
-- 📊 **Advanced Analytics** — Predictive modeling, risk trajectory forecasting
-- 🤝 **Integration** — Apple Health, Google Fit, EHR systems
-
----
-
-## 👥 Team
-
-**Team FAIV** — Built at *Watch The Code Hackathon 2026*
-
-| Member | Role | GitHub | 
-|---|---|---|
-| Ishika Rawat | 🎨 Frontend Engineer | [@ishikarawatt](https://github.com/ishikarawat) |
-| Farjan Alam | 🤖 AI/ML | [@SyntaxSaviour](https://github.com/alamfarzan) |
-| Vansh Singh | ⚙️ Backend Engineer | [@vanshsingh2411](https://github.com/vanshsingh) |
-| Akansha Parley | 📋 Product & Demo | [@akansaa](https://github.com/akanshaparley) | 
+**Aryaman Mohta**  
+- **GitHub:** [@Aryaman129](https://github.com/Aryaman129)  
+- **Repository:** [https://github.com/Aryaman129/Cogni](https://github.com/Aryaman129/Cogni)
 
 ---
 
 ## 📄 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
-Free to use, modify, and distribute for personal and commercial projects.
-
----
-
-<div align="center">
-
-Built with 💙 by **Team FAIV**
-
-> *"We are not building an app. We are building the world's largest longitudinal cognitive dataset —*
-> *and using it to give families the one thing they desperately want: **time**."*
-
-<br/>
-
-Every 3 seconds, someone develops dementia.
-**CogniSafe gives families 5–10 years of early warning.**
-
-<br/>
-
-[![Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-cogni--safe.vercel.app-E8A020?style=for-the-badge)](https://cogni-safe.vercel.app)
-[![HuggingFace](https://img.shields.io/badge/🤗%20ML%20API-HuggingFace%20Spaces-FF9D00?style=for-the-badge)](https://alamfarzann-cognisafe-ml.hf.space/health)
-
-</div>
