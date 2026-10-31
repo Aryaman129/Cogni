@@ -23,13 +23,14 @@ run_migrations(engine)
 
 app = FastAPI(title="CogniSafe API", version="1.0.0")
 
-# Restrict CORS origins via ALLOWED_ORIGINS environment variable
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
+# Restrict CORS origins via ALLOWED_ORIGINS environment variable + local network regex
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://192.168.1.15:5173")
 allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
